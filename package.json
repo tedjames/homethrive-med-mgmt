@@ -4,6 +4,10 @@
   "private": true,
   "description": "",
   "main": "index.js",
+  "engines": {
+    "node": ">=22.0.0",
+    "pnpm": ">=9.0.0"
+  },
   "scripts": {
     "dev:setup": "./scripts/setup.sh",
     "dev": "./scripts/dev.sh",
@@ -25,5 +29,8 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "packageManager": "pnpm@10.19.0"
+  "packageManager": "pnpm@10.19.0",
+  "devDependencies": {
+    "@types/node": "^25.0.3"
+  }
 }
