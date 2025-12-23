@@ -1,0 +1,9 @@
+# CDK output
+cdk.out/
+cdk.context.json
+
+# Build output
+dist/
+
+# Node modules
+node_modules/
