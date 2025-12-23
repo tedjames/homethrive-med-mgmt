@@ -1,0 +1,52 @@
+{
+  "name": "@homethrive/db",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./schema": {
+      "types": "./dist/schema/index.d.ts",
+      "import": "./dist/schema/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "typecheck": "tsc -p tsconfig.check.json",
+    "check": "pnpm lint && pnpm typecheck",
+    "clean": "rm -rf dist",
+    "test": "./scripts/test.sh",
+    "test:watch": "vitest",
+    "test:coverage": "./scripts/test.sh --coverage",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "tsx scripts/migrate.ts",
+    "db:push": "drizzle-kit push",
+    "db:studio": "drizzle-kit studio",
+    "db:reset": "tsx scripts/reset.ts"
+  },
+  "dependencies": {
+    "@homethrive/core": "workspace:*",
+    "drizzle-orm": "^0.44.7",
+    "postgres": "^3.4.7"
+  },
+  "devDependencies": {
+    "@aws-sdk/client-secrets-manager": "^3.956.0",
+    "@types/node": "^20.19.23",
+    "@vitest/coverage-v8": "^4.0.15",
+    "dotenv": "^17.2.3",
+    "drizzle-kit": "^0.31.1",
+    "eslint": "^9.39.2",
+    "globals": "^16.5.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.3",
+    "typescript-eslint": "^8.50.0",
+    "vitest": "^4.0.15"
+  }
+}
