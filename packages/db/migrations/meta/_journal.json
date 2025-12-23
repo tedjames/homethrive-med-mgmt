@@ -1,0 +1,27 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1766204491673,
+      "tag": "0000_loose_doctor_doom",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1766208304597,
+      "tag": "0001_dusty_magik",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1766355641854,
+      "tag": "0002_sudden_overlord",
+      "breakpoints": true
+    }
+  ]
+}
