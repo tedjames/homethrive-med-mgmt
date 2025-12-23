@@ -1,0 +1,13 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "strict": true,
+    "skipLibCheck": true,
+    "types": ["node"]
+  },
+  "include": ["packages/*/src/**/*.ts", "packages/*/*.ts", "packages/*/*.mjs"],
+  "exclude": ["**/node_modules/**", "**/dist/**", "**/coverage/**"]
+}
+

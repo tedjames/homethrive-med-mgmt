@@ -1,0 +1,29 @@
+{
+  "name": "homethrive-med-mgmt",
+  "version": "1.0.0",
+  "private": true,
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "dev:setup": "./scripts/setup.sh",
+    "dev": "./scripts/dev.sh",
+    "deploy:backend": "pnpm --filter @homethrive/infra run deploy",
+    "deploy:frontend": "chmod +x packages/infra/scripts/deploy-frontend.sh && ./packages/infra/scripts/deploy-frontend.sh",
+    "deploy:all": "pnpm deploy:backend && pnpm deploy:frontend",
+    "destroy": "pnpm --filter @homethrive/infra run destroy",
+    "audit:aws": "chmod +x packages/infra/scripts/audit.sh && ./packages/infra/scripts/audit.sh",
+    "health:check": "chmod +x packages/infra/scripts/validate.sh && ./packages/infra/scripts/validate.sh",
+    "alerts:email": "chmod +x packages/infra/scripts/alerts-email.sh && ./packages/infra/scripts/alerts-email.sh",
+    "clean": "pnpm -r --if-present clean",
+    "build": "pnpm -r --if-present build",
+    "typecheck": "pnpm -r --if-present typecheck",
+    "test": "pnpm -r --if-present test",
+    "db:generate": "pnpm --filter @homethrive/db db:generate",
+    "db:migrate": "pnpm --filter @homethrive/db db:migrate",
+    "db:migrate:prod": "chmod +x packages/infra/scripts/migrate.sh && ./packages/infra/scripts/migrate.sh"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "packageManager": "pnpm@10.19.0"
+}
