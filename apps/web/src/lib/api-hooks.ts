@@ -645,26 +645,6 @@ export function useReactivateMedication() {
   })
 }
 
-export function useDeleteMedication() {
-  const { getToken } = useAuth()
-  const queryClient = useQueryClient()
-
-  return useMutation({
-    mutationFn: ({ id, recipientId }: { id: string; recipientId: string }) =>
-      apiRequest<{ deleted: boolean }>(`/medications/${id}`, { method: 'DELETE' }, getToken),
-    onSuccess: (_, variables) => {
-      // Use partial key to invalidate all medications queries for this recipient
-      queryClient.invalidateQueries({ queryKey: ['medications', variables.recipientId] })
-      toast.success('Medication permanently deleted')
-    },
-    onError: (error) => {
-      toast.error(
-        error instanceof ApiClientError ? error.message : 'Failed to delete medication'
-      )
-    },
-  })
-}
-
 // =============================================================================
 // Doses Hooks
 // =============================================================================

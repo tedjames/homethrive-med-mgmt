@@ -207,35 +207,6 @@ export function createMockRepositories() {
       return updated;
     },
 
-    async delete(userId: UserId, medicationId: string) {
-      const existing = store.medications.get(medicationId);
-      const recipient = existing ? store.careRecipients.get(existing.recipientId) : null;
-      if (!existing || !recipient || recipient.createdByUserId !== userId) return false;
-
-      // Collect schedule IDs for this medication
-      const scheduleIds = new Set<string>();
-      for (const [id, schedule] of store.schedules) {
-        if (schedule.medicationId === medicationId) {
-          scheduleIds.add(id);
-        }
-      }
-
-      // Delete associated dose_taken records
-      for (const [key, doseTaken] of store.doseTakenByKey) {
-        if (scheduleIds.has(doseTaken.scheduleId)) {
-          store.doseTakenByKey.delete(key);
-        }
-      }
-
-      // Delete associated schedules
-      for (const scheduleId of scheduleIds) {
-        store.schedules.delete(scheduleId);
-      }
-
-      store.medications.delete(medicationId);
-      return true;
-    },
-
     async createWithSchedules(
       userId: UserId,
       recipientId: string,

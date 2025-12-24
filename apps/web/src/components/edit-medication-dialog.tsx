@@ -25,14 +25,12 @@ type EditMedicationDialogProps = {
   onSave: (medication: MedicationWithSchedules) => void
   onDeactivate?: (medication: MedicationWithSchedules) => void
   onReactivate?: (medication: MedicationWithSchedules) => void
-  onDelete?: (medication: MedicationWithSchedules) => void
   onUpdateSchedule?: (scheduleId: string, data: ScheduleFormData) => void
   onEndSchedule?: (scheduleId: string) => void
   onAddSchedule?: (medicationId: string, data: ScheduleFormData) => void
   isSaving?: boolean
   isDeactivating?: boolean
   isReactivating?: boolean
-  isDeleting?: boolean
   isUpdatingSchedule?: boolean
   isEndingSchedule?: boolean
   isAddingSchedule?: boolean
@@ -45,14 +43,12 @@ export function EditMedicationDialog({
   onSave,
   onDeactivate,
   onReactivate,
-  onDelete,
   onUpdateSchedule,
   onEndSchedule,
   onAddSchedule,
   isSaving,
   isDeactivating,
   isReactivating,
-  isDeleting,
   isUpdatingSchedule,
   isEndingSchedule,
   isAddingSchedule,
@@ -61,7 +57,6 @@ export function EditMedicationDialog({
   const [instructions, setInstructions] = React.useState('')
   const [confirmDeactivate, setConfirmDeactivate] = React.useState(false)
   const [confirmReactivate, setConfirmReactivate] = React.useState(false)
-  const [confirmDelete, setConfirmDelete] = React.useState(false)
   const [confirmEndScheduleId, setConfirmEndScheduleId] = React.useState<string | null>(null)
 
   // Schedule editing state
@@ -104,12 +99,6 @@ export function EditMedicationDialog({
     if (!medication || !onReactivate) return
     onReactivate(medication)
     setConfirmReactivate(false)
-  }
-
-  const handleDelete = () => {
-    if (!medication || !onDelete) return
-    onDelete(medication)
-    setConfirmDelete(false)
   }
 
   const handleStartEditSchedule = (schedule: Schedule) => {
@@ -174,7 +163,7 @@ export function EditMedicationDialog({
   }
 
   const isValid = name.trim().length > 0
-  const isLoading = isSaving || isDeactivating || isReactivating || isDeleting || isUpdatingSchedule || isEndingSchedule || isAddingSchedule
+  const isLoading = isSaving || isDeactivating || isReactivating || isUpdatingSchedule || isEndingSchedule || isAddingSchedule
 
   if (!medication) return null
 
@@ -431,32 +420,6 @@ export function EditMedicationDialog({
                   </div>
                 </>
               )}
-
-              {/* Permanently Delete Option (for inactive medications only) */}
-              {!medication.isActive && onDelete && (
-                <>
-                  <Separator />
-                  <div className="rounded-lg border border-destructive/20 bg-destructive/5 p-4">
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-1">
-                        <p className="text-sm font-medium">Permanently Delete</p>
-                        <p className="text-xs text-muted-foreground">
-                          Delete this medication and all its dose history. This cannot be undone.
-                        </p>
-                      </div>
-                      <Button
-                        type="button"
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => setConfirmDelete(true)}
-                        disabled={isLoading}
-                      >
-                        Delete
-                      </Button>
-                    </div>
-                  </div>
-                </>
-              )}
             </div>
 
             <DialogFooter>
@@ -502,16 +465,6 @@ export function EditMedicationDialog({
         description={`Are you sure you want to reactivate ${medication.name}? Doses will start being tracked again.`}
         confirmLabel={isReactivating ? 'Reactivating...' : 'Reactivate'}
         onConfirm={handleReactivate}
-      />
-
-      <ConfirmDialog
-        open={confirmDelete}
-        onOpenChange={setConfirmDelete}
-        title="Permanently Delete Medication"
-        description={`This will permanently delete ${medication.name} and all its dose history. This action cannot be undone.`}
-        confirmLabel={isDeleting ? 'Deleting...' : 'Delete Permanently'}
-        onConfirm={handleDelete}
-        variant="destructive"
       />
 
       <ConfirmDialog

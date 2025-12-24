@@ -11,7 +11,6 @@ import {
   isMedicationNotFound,
   isMedicationRequiresSchedule,
   isInactiveMedication,
-  isMedicationNotInactive,
   isScheduleNotFound,
   isScheduleInactiveMedication,
   isLastScheduleEnd,
@@ -173,25 +172,6 @@ export default async function medicationsRoutes(fastify: FastifyInstance): Promi
     } catch (err) {
       if (isMedicationNotFound(err)) {
         return sendError(reply, err.message, HTTP_STATUS.NOT_FOUND);
-      }
-      throw err;
-    }
-  });
-
-  // Permanently delete medication (must be inactive first)
-  fastify.delete('/medications/:id', async (request, reply) => {
-    const userId = resolveUserId(request);
-    const { id } = request.params as { id: string };
-
-    try {
-      await medicationService.deletePermanently(userId, id);
-      return sendSuccess(reply, { deleted: true });
-    } catch (err) {
-      if (isMedicationNotFound(err)) {
-        return sendError(reply, err.message, HTTP_STATUS.NOT_FOUND);
-      }
-      if (isMedicationNotInactive(err)) {
-        return sendError(reply, err.message, HTTP_STATUS.BAD_REQUEST, 'MEDICATION_NOT_INACTIVE');
       }
       throw err;
     }

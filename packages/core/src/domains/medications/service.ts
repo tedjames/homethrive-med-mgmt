@@ -4,7 +4,7 @@
  * Provides business logic for managing medications for care recipients.
  * Enforces key business invariants:
  * - Medications must have at least one schedule at creation time
- * - Medications can be permanently deleted, but only after being deactivated first
+ * - Medications cannot be deleted (soft delete only via deactivation)
  * - Inactive medications cannot be modified (must be reactivated first)
  *
  * @module medications/service
@@ -16,7 +16,6 @@ import type { CreateScheduleForMedicationInput } from '../schedules/entity.js';
 import {
   InactiveMedicationError,
   MedicationNotFoundError,
-  MedicationNotInactiveError,
   MedicationRequiresScheduleError,
 } from './errors.js';
 import type { MedicationRepository } from './repository.js';
@@ -175,8 +174,7 @@ export function createMedicationService(repo: MedicationRepository) {
    * Marks a medication as inactive (soft delete).
    *
    * Deactivation preserves historical dose records and allows for potential
-   * reactivation. Alternatively, deactivated medications can be permanently
-   * deleted using `deletePermanently()`. The `inactiveAt` timestamp is set to the current time.
+   * reactivation. The `inactiveAt` timestamp is set to the current time.
    *
    * After being marked inactive:
    * - The medication won't appear in default listing queries
@@ -225,48 +223,7 @@ export function createMedicationService(repo: MedicationRepository) {
     return medication;
   }
 
-  /**
-   * Permanently deletes a medication and all associated data.
-   *
-   * This action cannot be undone. All associated schedules and dose history
-   * will be permanently deleted. The medication must be inactive before it
-   * can be deleted.
-   *
-   * @param userId - The requesting user's ID (for authorization)
-   * @param medicationId - The medication's unique identifier
-   * @throws {MedicationNotFoundError} If the medication doesn't exist or user lacks access
-   * @throws {MedicationNotInactiveError} If the medication is still active
-   *
-   * @example
-   * ```typescript
-   * // First deactivate the medication
-   * await service.setInactive('user-123', 'med-456');
-   *
-   * // Then permanently delete it
-   * await service.deletePermanently('user-123', 'med-456');
-   * ```
-   */
-  async function deletePermanently(userId: UserId, medicationId: string): Promise<void> {
-    // Check if medication exists and get its current state
-    const medication = await repo.findById(userId, medicationId);
-    if (!medication) {
-      throw new MedicationNotFoundError(medicationId);
-    }
-
-    // Ensure medication is inactive before allowing deletion
-    if (medication.isActive) {
-      throw new MedicationNotInactiveError(medicationId);
-    }
-
-    // Perform the deletion
-    const deleted = await repo.delete(userId, medicationId);
-    if (!deleted) {
-      // Should not happen if findById succeeded, but handle defensively
-      throw new MedicationNotFoundError(medicationId);
-    }
-  }
-
-  return { create, getById, listByRecipient, update, setInactive, reactivate, deletePermanently };
+  return { create, getById, listByRecipient, update, setInactive, reactivate };
 }
 
 /**

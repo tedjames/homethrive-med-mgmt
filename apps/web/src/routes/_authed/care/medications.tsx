@@ -8,7 +8,6 @@ import {
   useUpdateMedication,
   useDeactivateMedication,
   useReactivateMedication,
-  useDeleteMedication,
   useUpdateSchedule,
   useEndSchedule,
   useAddSchedule,
@@ -53,7 +52,6 @@ function CareMedications() {
   const updateMedication = useUpdateMedication()
   const deactivateMedication = useDeactivateMedication()
   const reactivateMedication = useReactivateMedication()
-  const deleteMedication = useDeleteMedication()
   const updateSchedule = useUpdateSchedule()
   const endSchedule = useEndSchedule()
   const addSchedule = useAddSchedule()
@@ -128,23 +126,6 @@ function CareMedications() {
       id: medication.id,
       recipientId: selectedRecipientId,
     })
-  }
-
-  const handleDeleteMedication = (medication: MedicationWithSchedules) => {
-    if (!selectedRecipientId) return
-
-    deleteMedication.mutate(
-      {
-        id: medication.id,
-        recipientId: selectedRecipientId,
-      },
-      {
-        onSuccess: () => {
-          setEditDialogOpen(false)
-          setSelectedMedication(null)
-        },
-      }
-    )
   }
 
   const handleUpdateSchedule = (scheduleId: string, data: ScheduleFormData) => {
@@ -313,14 +294,12 @@ function CareMedications() {
         onSave={handleSaveMedication}
         onDeactivate={handleDeactivateMedication}
         onReactivate={handleReactivateMedication}
-        onDelete={handleDeleteMedication}
         onUpdateSchedule={handleUpdateSchedule}
         onEndSchedule={handleEndSchedule}
         onAddSchedule={handleAddSchedule}
         isSaving={updateMedication.isPending}
         isDeactivating={deactivateMedication.isPending}
         isReactivating={reactivateMedication.isPending}
-        isDeleting={deleteMedication.isPending}
         isUpdatingSchedule={updateSchedule.isPending}
         isEndingSchedule={endSchedule.isPending}
         isAddingSchedule={addSchedule.isPending}

@@ -21,9 +21,7 @@ export {
   MedicationNotFoundError,
   MedicationRequiresScheduleError,
   InactiveMedicationError,
-  MedicationNotInactiveError,
   isMedicationNotFound,
   isMedicationRequiresSchedule,
   isInactiveMedication,
-  isMedicationNotInactive,
 } from './errors.js';

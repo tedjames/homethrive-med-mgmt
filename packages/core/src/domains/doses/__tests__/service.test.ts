@@ -54,7 +54,6 @@ function createMedicationRepoStub(
     update: vi.fn(async () => null),
     setInactive: vi.fn(async () => null),
     setActive: vi.fn(async () => null),
-    delete: vi.fn(async () => false),
     createWithSchedules: vi.fn(async () => {
       throw new Error('not implemented');
     }),
