@@ -444,3 +444,11 @@ API_URL=https://api.your-domain.com AUTH_TOKEN=<clerk-jwt> pnpm --filter @hometh
 - Multiple Environents: Keeping it simple and to save $$$, limited this to just one prod environment. If we were deploying to multiple envs, I'd consider different infra configurations to minimize cost in lower envs and maximize for scalability in prod.
 
 - UI test automation: Just didn't have time to do this! Ideally, we'd have playwright or cypress automation w/ UI fixtures for true e2e testing.
+
+- Clerk Webhooks: When a user deletes their account through Clerk, their data remains orphaned in our database. We need a webhook endpoint to listen for user.deleted events and clean up the user's data. We'd also want to handle `user.updated` events to sync profile changes made in Clerk back to our database. Just didn't have time to wire this up!
+
+- Clerk Production Setup: When deploying to prod just use your test credentials so you don't have to wire up a static domain.
+
+- Dose History Page: A dedicated page for viewing the full history of taken and missed doses would be useful for caregivers to audit medication compliance over time
+
+- Infinite Scroll Edge-Cases: There are some additional edge cases / optimizations we could have made here specifically if a user only has one medication scheduled weekly and if it's 6 days out - a bunch of API calls are made in succession. This could be optimized of course but wasn't done in the interest of time.
