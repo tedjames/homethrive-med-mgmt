@@ -1,20 +1,13 @@
 /// <reference types="vite/client" />
-import {
-  ClerkProvider,
-  SignInButton,
-  SignedIn,
-  SignedOut,
-  UserButton,
-} from '@clerk/clerk-react'
-import { TanStackRouterDevtools } from '@tanstack/react-router-devtools'
+import { ClerkProvider } from '@clerk/clerk-react'
 import * as React from 'react'
 import {
   HeadContent,
-  Link,
   Outlet,
   Scripts,
   createRootRoute,
 } from '@tanstack/react-router'
+import { Toaster } from '@/components/ui/sonner'
 import { DefaultCatchBoundary } from '~/components/DefaultCatchBoundary.js'
 import { NotFound } from '~/components/NotFound.js'
 import appCss from '~/styles/app.css?url'
@@ -86,37 +79,9 @@ function RootDocument({ children }: { children: React.ReactNode }) {
       <head>
         <HeadContent />
       </head>
-      <body>
-        <div className="p-2 flex gap-2 text-lg">
-          <Link
-            to="/"
-            activeProps={{
-              className: 'font-bold',
-            }}
-            activeOptions={{ exact: true }}
-          >
-            Home
-          </Link>{' '}
-          <Link
-            to="/posts"
-            activeProps={{
-              className: 'font-bold',
-            }}
-          >
-            Posts
-          </Link>
-          <div className="ml-auto">
-            <SignedIn>
-              <UserButton />
-            </SignedIn>
-            <SignedOut>
-              <SignInButton mode="modal" />
-            </SignedOut>
-          </div>
-        </div>
-        <hr />
+      <body className="min-h-screen bg-background antialiased">
         {children}
-        <TanStackRouterDevtools position="bottom-right" />
+        <Toaster position="bottom-right" />
         <Scripts />
       </body>
     </html>

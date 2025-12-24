@@ -1,0 +1,139 @@
+import * as React from 'react'
+import { createFileRoute } from '@tanstack/react-router'
+import { ArrowUp } from 'lucide-react'
+import { getScheduleForDays, type DaySchedule } from '~/lib/mock-data'
+import { Button } from '@/components/ui/button'
+import { BlurFade } from '@/components/ui/blur-fade'
+import { ScheduleFeed } from '~/components/schedule-feed'
+
+export const Route = createFileRoute('/_authed/my/schedule')({
+  component: MySchedule,
+})
+
+const INITIAL_DAYS = 7
+const LOAD_MORE_DAYS = 7
+
+// Mock user ID for personal schedule (will be replaced with actual user ID from Clerk)
+const MY_RECIPIENT_ID = 'self'
+
+function MySchedule() {
+  const [days, setDays] = React.useState<DaySchedule[]>([])
+  const [isLoading, setIsLoading] = React.useState(false)
+  const [daysLoaded, setDaysLoaded] = React.useState(0)
+  const [showScrollTop, setShowScrollTop] = React.useState(false)
+  const loadMoreRef = React.useRef<HTMLDivElement>(null)
+
+  // Load initial days
+  React.useEffect(() => {
+    const today = new Date()
+    const initialDays = getScheduleForDays(MY_RECIPIENT_ID, today, INITIAL_DAYS)
+    setDays(initialDays)
+    setDaysLoaded(INITIAL_DAYS)
+  }, [])
+
+  // Load more days
+  const loadMoreDays = React.useCallback(() => {
+    if (isLoading) return
+
+    setIsLoading(true)
+
+    // Simulate API delay
+    setTimeout(() => {
+      const today = new Date()
+      const startDate = new Date(today)
+      startDate.setDate(today.getDate() + daysLoaded)
+
+      const moreDays = getScheduleForDays(MY_RECIPIENT_ID, startDate, LOAD_MORE_DAYS)
+      setDays((prev) => [...prev, ...moreDays])
+      setDaysLoaded((prev) => prev + LOAD_MORE_DAYS)
+      setIsLoading(false)
+    }, 1000)
+  }, [isLoading, daysLoaded])
+
+  // Intersection Observer for infinite scroll
+  React.useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && !isLoading && daysLoaded > 0) {
+          loadMoreDays()
+        }
+      },
+      { threshold: 0.1 }
+    )
+
+    if (loadMoreRef.current) {
+      observer.observe(loadMoreRef.current)
+    }
+
+    return () => observer.disconnect()
+  }, [loadMoreDays, isLoading, daysLoaded])
+
+  // Scroll to top button visibility
+  React.useEffect(() => {
+    const handleScroll = () => {
+      setShowScrollTop(window.scrollY > 200)
+    }
+
+    window.addEventListener('scroll', handleScroll, { passive: true })
+    return () => window.removeEventListener('scroll', handleScroll)
+  }, [])
+
+  const scrollToTop = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  // Handle marking a dose as taken/untaken
+  const handleToggleDose = (doseId: string, isTaken: boolean) => {
+    setDays((prev) =>
+      prev.map((day) => ({
+        ...day,
+        morning: day.morning.map((dose) =>
+          dose.doseId === doseId
+            ? { ...dose, isTaken, takenAt: isTaken ? new Date().toISOString() : null }
+            : dose
+        ),
+        afternoon: day.afternoon.map((dose) =>
+          dose.doseId === doseId
+            ? { ...dose, isTaken, takenAt: isTaken ? new Date().toISOString() : null }
+            : dose
+        ),
+        evening: day.evening.map((dose) =>
+          dose.doseId === doseId
+            ? { ...dose, isTaken, takenAt: isTaken ? new Date().toISOString() : null }
+            : dose
+        ),
+      }))
+    )
+  }
+
+  return (
+    <div className="space-y-6 pb-20 md:pb-0">
+      <div>
+        <h1 className="font-['Gambarino'] text-4xl">My Schedule</h1>
+        <p className="text-sm text-muted-foreground">
+          Your upcoming medication schedule
+        </p>
+      </div>
+
+      <ScheduleFeed days={days} onToggle={handleToggleDose} isLoading={isLoading} />
+
+      {/* Intersection observer trigger */}
+      <div ref={loadMoreRef} className="h-4" />
+
+      {/* Scroll to top button */}
+      {showScrollTop && (
+        <BlurFade className="fixed bottom-24 right-4 z-50 md:bottom-8">
+          <Button
+            onClick={scrollToTop}
+            size="icon"
+            variant="outline"
+            className="size-12 rounded-full bg-white shadow-lg"
+            aria-label="Scroll to top"
+          >
+            <ArrowUp className="size-6 text-violet-400" />
+          </Button>
+        </BlurFade>
+      )}
+    </div>
+  )
+}

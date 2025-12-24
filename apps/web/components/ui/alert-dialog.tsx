@@ -97,7 +97,7 @@ function AlertDialogTitle({
   return (
     <AlertDialogPrimitive.Title
       data-slot="alert-dialog-title"
-      className={cn("text-lg font-semibold", className)}
+      className={cn("font-['Gambarino'] text-4xl", className)}
       {...props}
     />
   )

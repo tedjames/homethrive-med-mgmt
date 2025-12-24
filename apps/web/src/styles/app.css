@@ -121,3 +121,13 @@
     @apply bg-background text-foreground;
   }
 }
+
+@font-face {
+  font-family: 'Gambarino';
+  src: url('/Gambarino-Regular.woff2') format('woff2'),
+       url('/Gambarino-Regular.woff') format('woff'),
+       url('/Gambarino-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-display: swap;
+  font-style: normal;
+}

@@ -9,13 +9,22 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as OnboardingRouteImport } from './routes/_onboarding'
 import { Route as AuthedRouteImport } from './routes/_authed'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as AuthedPostsRouteImport } from './routes/_authed/posts'
-import { Route as AuthedPostsIndexRouteImport } from './routes/_authed/posts.index'
-import { Route as AuthedProfileSplatRouteImport } from './routes/_authed/profile.$'
-import { Route as AuthedPostsPostIdRouteImport } from './routes/_authed/posts.$postId'
+import { Route as OnboardingOnboardingRouteImport } from './routes/_onboarding/onboarding'
+import { Route as AuthedSettingsRouteImport } from './routes/_authed/settings'
+import { Route as AuthedMyRouteImport } from './routes/_authed/my'
+import { Route as AuthedCareRouteImport } from './routes/_authed/care'
+import { Route as AuthedMyScheduleRouteImport } from './routes/_authed/my/schedule'
+import { Route as AuthedMyMedicationsRouteImport } from './routes/_authed/my/medications'
+import { Route as AuthedCareScheduleRouteImport } from './routes/_authed/care/schedule'
+import { Route as AuthedCareMedicationsRouteImport } from './routes/_authed/care/medications'
 
+const OnboardingRoute = OnboardingRouteImport.update({
+  id: '/_onboarding',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthedRoute = AuthedRouteImport.update({
   id: '/_authed',
   getParentRoute: () => rootRouteImport,
@@ -25,71 +34,136 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AuthedPostsRoute = AuthedPostsRouteImport.update({
-  id: '/posts',
-  path: '/posts',
+const OnboardingOnboardingRoute = OnboardingOnboardingRouteImport.update({
+  id: '/onboarding',
+  path: '/onboarding',
+  getParentRoute: () => OnboardingRoute,
+} as any)
+const AuthedSettingsRoute = AuthedSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
   getParentRoute: () => AuthedRoute,
 } as any)
-const AuthedPostsIndexRoute = AuthedPostsIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => AuthedPostsRoute,
-} as any)
-const AuthedProfileSplatRoute = AuthedProfileSplatRouteImport.update({
-  id: '/profile/$',
-  path: '/profile/$',
+const AuthedMyRoute = AuthedMyRouteImport.update({
+  id: '/my',
+  path: '/my',
   getParentRoute: () => AuthedRoute,
 } as any)
-const AuthedPostsPostIdRoute = AuthedPostsPostIdRouteImport.update({
-  id: '/$postId',
-  path: '/$postId',
-  getParentRoute: () => AuthedPostsRoute,
+const AuthedCareRoute = AuthedCareRouteImport.update({
+  id: '/care',
+  path: '/care',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const AuthedMyScheduleRoute = AuthedMyScheduleRouteImport.update({
+  id: '/schedule',
+  path: '/schedule',
+  getParentRoute: () => AuthedMyRoute,
+} as any)
+const AuthedMyMedicationsRoute = AuthedMyMedicationsRouteImport.update({
+  id: '/medications',
+  path: '/medications',
+  getParentRoute: () => AuthedMyRoute,
+} as any)
+const AuthedCareScheduleRoute = AuthedCareScheduleRouteImport.update({
+  id: '/schedule',
+  path: '/schedule',
+  getParentRoute: () => AuthedCareRoute,
+} as any)
+const AuthedCareMedicationsRoute = AuthedCareMedicationsRouteImport.update({
+  id: '/medications',
+  path: '/medications',
+  getParentRoute: () => AuthedCareRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/posts': typeof AuthedPostsRouteWithChildren
-  '/posts/$postId': typeof AuthedPostsPostIdRoute
-  '/profile/$': typeof AuthedProfileSplatRoute
-  '/posts/': typeof AuthedPostsIndexRoute
+  '/care': typeof AuthedCareRouteWithChildren
+  '/my': typeof AuthedMyRouteWithChildren
+  '/settings': typeof AuthedSettingsRoute
+  '/onboarding': typeof OnboardingOnboardingRoute
+  '/care/medications': typeof AuthedCareMedicationsRoute
+  '/care/schedule': typeof AuthedCareScheduleRoute
+  '/my/medications': typeof AuthedMyMedicationsRoute
+  '/my/schedule': typeof AuthedMyScheduleRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/posts/$postId': typeof AuthedPostsPostIdRoute
-  '/profile/$': typeof AuthedProfileSplatRoute
-  '/posts': typeof AuthedPostsIndexRoute
+  '/care': typeof AuthedCareRouteWithChildren
+  '/my': typeof AuthedMyRouteWithChildren
+  '/settings': typeof AuthedSettingsRoute
+  '/onboarding': typeof OnboardingOnboardingRoute
+  '/care/medications': typeof AuthedCareMedicationsRoute
+  '/care/schedule': typeof AuthedCareScheduleRoute
+  '/my/medications': typeof AuthedMyMedicationsRoute
+  '/my/schedule': typeof AuthedMyScheduleRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/_authed': typeof AuthedRouteWithChildren
-  '/_authed/posts': typeof AuthedPostsRouteWithChildren
-  '/_authed/posts/$postId': typeof AuthedPostsPostIdRoute
-  '/_authed/profile/$': typeof AuthedProfileSplatRoute
-  '/_authed/posts/': typeof AuthedPostsIndexRoute
+  '/_onboarding': typeof OnboardingRouteWithChildren
+  '/_authed/care': typeof AuthedCareRouteWithChildren
+  '/_authed/my': typeof AuthedMyRouteWithChildren
+  '/_authed/settings': typeof AuthedSettingsRoute
+  '/_onboarding/onboarding': typeof OnboardingOnboardingRoute
+  '/_authed/care/medications': typeof AuthedCareMedicationsRoute
+  '/_authed/care/schedule': typeof AuthedCareScheduleRoute
+  '/_authed/my/medications': typeof AuthedMyMedicationsRoute
+  '/_authed/my/schedule': typeof AuthedMyScheduleRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/posts' | '/posts/$postId' | '/profile/$' | '/posts/'
+  fullPaths:
+    | '/'
+    | '/care'
+    | '/my'
+    | '/settings'
+    | '/onboarding'
+    | '/care/medications'
+    | '/care/schedule'
+    | '/my/medications'
+    | '/my/schedule'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/posts/$postId' | '/profile/$' | '/posts'
+  to:
+    | '/'
+    | '/care'
+    | '/my'
+    | '/settings'
+    | '/onboarding'
+    | '/care/medications'
+    | '/care/schedule'
+    | '/my/medications'
+    | '/my/schedule'
   id:
     | '__root__'
     | '/'
     | '/_authed'
-    | '/_authed/posts'
-    | '/_authed/posts/$postId'
-    | '/_authed/profile/$'
-    | '/_authed/posts/'
+    | '/_onboarding'
+    | '/_authed/care'
+    | '/_authed/my'
+    | '/_authed/settings'
+    | '/_onboarding/onboarding'
+    | '/_authed/care/medications'
+    | '/_authed/care/schedule'
+    | '/_authed/my/medications'
+    | '/_authed/my/schedule'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthedRoute: typeof AuthedRouteWithChildren
+  OnboardingRoute: typeof OnboardingRouteWithChildren
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/_onboarding': {
+      id: '/_onboarding'
+      path: ''
+      fullPath: ''
+      preLoaderRoute: typeof OnboardingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_authed': {
       id: '/_authed'
       path: ''
@@ -104,67 +178,124 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_authed/posts': {
-      id: '/_authed/posts'
-      path: '/posts'
-      fullPath: '/posts'
-      preLoaderRoute: typeof AuthedPostsRouteImport
+    '/_onboarding/onboarding': {
+      id: '/_onboarding/onboarding'
+      path: '/onboarding'
+      fullPath: '/onboarding'
+      preLoaderRoute: typeof OnboardingOnboardingRouteImport
+      parentRoute: typeof OnboardingRoute
+    }
+    '/_authed/settings': {
+      id: '/_authed/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof AuthedSettingsRouteImport
       parentRoute: typeof AuthedRoute
     }
-    '/_authed/posts/': {
-      id: '/_authed/posts/'
-      path: '/'
-      fullPath: '/posts/'
-      preLoaderRoute: typeof AuthedPostsIndexRouteImport
-      parentRoute: typeof AuthedPostsRoute
-    }
-    '/_authed/profile/$': {
-      id: '/_authed/profile/$'
-      path: '/profile/$'
-      fullPath: '/profile/$'
-      preLoaderRoute: typeof AuthedProfileSplatRouteImport
+    '/_authed/my': {
+      id: '/_authed/my'
+      path: '/my'
+      fullPath: '/my'
+      preLoaderRoute: typeof AuthedMyRouteImport
       parentRoute: typeof AuthedRoute
     }
-    '/_authed/posts/$postId': {
-      id: '/_authed/posts/$postId'
-      path: '/$postId'
-      fullPath: '/posts/$postId'
-      preLoaderRoute: typeof AuthedPostsPostIdRouteImport
-      parentRoute: typeof AuthedPostsRoute
+    '/_authed/care': {
+      id: '/_authed/care'
+      path: '/care'
+      fullPath: '/care'
+      preLoaderRoute: typeof AuthedCareRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/my/schedule': {
+      id: '/_authed/my/schedule'
+      path: '/schedule'
+      fullPath: '/my/schedule'
+      preLoaderRoute: typeof AuthedMyScheduleRouteImport
+      parentRoute: typeof AuthedMyRoute
+    }
+    '/_authed/my/medications': {
+      id: '/_authed/my/medications'
+      path: '/medications'
+      fullPath: '/my/medications'
+      preLoaderRoute: typeof AuthedMyMedicationsRouteImport
+      parentRoute: typeof AuthedMyRoute
+    }
+    '/_authed/care/schedule': {
+      id: '/_authed/care/schedule'
+      path: '/schedule'
+      fullPath: '/care/schedule'
+      preLoaderRoute: typeof AuthedCareScheduleRouteImport
+      parentRoute: typeof AuthedCareRoute
+    }
+    '/_authed/care/medications': {
+      id: '/_authed/care/medications'
+      path: '/medications'
+      fullPath: '/care/medications'
+      preLoaderRoute: typeof AuthedCareMedicationsRouteImport
+      parentRoute: typeof AuthedCareRoute
     }
   }
 }
 
-interface AuthedPostsRouteChildren {
-  AuthedPostsPostIdRoute: typeof AuthedPostsPostIdRoute
-  AuthedPostsIndexRoute: typeof AuthedPostsIndexRoute
+interface AuthedCareRouteChildren {
+  AuthedCareMedicationsRoute: typeof AuthedCareMedicationsRoute
+  AuthedCareScheduleRoute: typeof AuthedCareScheduleRoute
 }
 
-const AuthedPostsRouteChildren: AuthedPostsRouteChildren = {
-  AuthedPostsPostIdRoute: AuthedPostsPostIdRoute,
-  AuthedPostsIndexRoute: AuthedPostsIndexRoute,
+const AuthedCareRouteChildren: AuthedCareRouteChildren = {
+  AuthedCareMedicationsRoute: AuthedCareMedicationsRoute,
+  AuthedCareScheduleRoute: AuthedCareScheduleRoute,
 }
 
-const AuthedPostsRouteWithChildren = AuthedPostsRoute._addFileChildren(
-  AuthedPostsRouteChildren,
+const AuthedCareRouteWithChildren = AuthedCareRoute._addFileChildren(
+  AuthedCareRouteChildren,
+)
+
+interface AuthedMyRouteChildren {
+  AuthedMyMedicationsRoute: typeof AuthedMyMedicationsRoute
+  AuthedMyScheduleRoute: typeof AuthedMyScheduleRoute
+}
+
+const AuthedMyRouteChildren: AuthedMyRouteChildren = {
+  AuthedMyMedicationsRoute: AuthedMyMedicationsRoute,
+  AuthedMyScheduleRoute: AuthedMyScheduleRoute,
+}
+
+const AuthedMyRouteWithChildren = AuthedMyRoute._addFileChildren(
+  AuthedMyRouteChildren,
 )
 
 interface AuthedRouteChildren {
-  AuthedPostsRoute: typeof AuthedPostsRouteWithChildren
-  AuthedProfileSplatRoute: typeof AuthedProfileSplatRoute
+  AuthedCareRoute: typeof AuthedCareRouteWithChildren
+  AuthedMyRoute: typeof AuthedMyRouteWithChildren
+  AuthedSettingsRoute: typeof AuthedSettingsRoute
 }
 
 const AuthedRouteChildren: AuthedRouteChildren = {
-  AuthedPostsRoute: AuthedPostsRouteWithChildren,
-  AuthedProfileSplatRoute: AuthedProfileSplatRoute,
+  AuthedCareRoute: AuthedCareRouteWithChildren,
+  AuthedMyRoute: AuthedMyRouteWithChildren,
+  AuthedSettingsRoute: AuthedSettingsRoute,
 }
 
 const AuthedRouteWithChildren =
   AuthedRoute._addFileChildren(AuthedRouteChildren)
 
+interface OnboardingRouteChildren {
+  OnboardingOnboardingRoute: typeof OnboardingOnboardingRoute
+}
+
+const OnboardingRouteChildren: OnboardingRouteChildren = {
+  OnboardingOnboardingRoute: OnboardingOnboardingRoute,
+}
+
+const OnboardingRouteWithChildren = OnboardingRoute._addFileChildren(
+  OnboardingRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthedRoute: AuthedRouteWithChildren,
+  OnboardingRoute: OnboardingRouteWithChildren,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
