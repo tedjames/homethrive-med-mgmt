@@ -11,6 +11,7 @@ Every user in the system can be both a care recipient and caregiver for others.
 1. **Sign Up**: Create an account using Clerk authentication (email auth only at the moment)
 2. **Complete Onboarding**: Set up your profile with your display name and timezone
 3. **Select a Role**: Designate yourself as a care recipient and/or caregiver
+
 ### Managing Care for Others
 
 To manage medications for someone else they must:
@@ -22,10 +23,26 @@ Once connected, you can switch between managing your own medications and theirs 
 
 ### Settings Page
 
-The Settings page has two tabs:
-
+The Settings page has three tabs:
+- **My Profile**: Modify your name and timezone
 - **My Caregivers**: See who has access to your profile, approve/deny requests, invite new caregivers, revoke access
 - **People I Care For**: See who you're caring for, accept/decline invitations, request access to new people
+
+### Medications & Data Lifecycle
+
+- **Safe Modifications**: Editing, ending, or deactivating medications and schedules preserves all historical dose data to ensure a reliable record of care.
+- **Deactivation**: Deactivating a medication hides it from the schedule but keeps all data intact, allowing it to be reactivated at any time.
+- **Permanent Deletion**: Hard deletes a medication, its schedules, and its entire dose history. This action is irreversible.
+- **Safety Guard**: Medications must be deactivated before they can be permanently deleted to prevent accidental data loss.
+
+### Timezone Handling
+
+Schedules are always displayed in the care recipient's local timezone:
+
+- **Your own medications**: Displayed in the timezone you set during onboarding
+- **Caring for others**: Displayed in the care recipient's timezone, not yours
+
+This means a caregiver in California viewing a New York recipient's 11pm dose will see it correctly grouped under the recipient's local date, not shifted to the caregiver's timezone. See [ADR-005](docs/ADR-005-timezones.md) for more on this.
 
 ## Project Structure
 
