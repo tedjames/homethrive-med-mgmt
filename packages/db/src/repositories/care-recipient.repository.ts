@@ -3,9 +3,10 @@
  *
  * ## Authorization Pattern
  *
- * All methods require a `userId` parameter and filter queries by `createdByUserId`
- * to ensure caregivers can only access their own care recipients. This is enforced
- * at the database query level for defense-in-depth.
+ * All methods require a `userId` parameter and check access based on:
+ * 1. The user owns the recipient profile (userId = user) - new model
+ * 2. The user created the recipient (createdByUserId = user) - deprecated/backwards compat
+ * 3. The user has approved caregiver access via caregiver_access table
  *
  * ## Timezone Handling
  *
@@ -22,10 +23,10 @@ import type {
   UpdateCareRecipientInput,
   UserId,
 } from '@homethrive/core';
-import { and, asc, eq } from 'drizzle-orm';
+import { and, asc, eq, or, sql } from 'drizzle-orm';
 
 import type { DbClient } from '../connection.js';
-import { careRecipients } from '../schema/core.js';
+import { caregiverAccess, careRecipients } from '../schema/core.js';
 
 /**
  * Maps a database care recipient row to the domain CareRecipient type.
@@ -33,6 +34,7 @@ import { careRecipients } from '../schema/core.js';
 function toDomain(row: typeof careRecipients.$inferSelect): CareRecipient {
   return {
     id: row.id,
+    userId: row.userId,
     createdByUserId: row.createdByUserId,
     displayName: row.displayName,
     timezone: row.timezone,
@@ -45,33 +47,90 @@ export class DrizzleCareRecipientRepository implements CareRecipientRepository {
   constructor(private readonly db: DbClient) {}
 
   /**
-   * Finds a care recipient by ID, scoped to the authenticated user.
+   * Finds the user's own care recipient profile by userId.
    *
-   * @param userId - The authenticated user's ID
-   * @param recipientId - The care recipient's UUID
-   * @returns The care recipient if found and owned by user, null otherwise
+   * @param userId - The user's ID
+   * @returns The user's own profile, or null if not found
    */
-  async findById(userId: UserId, recipientId: string): Promise<CareRecipient | null> {
+  async findByUserId(userId: UserId): Promise<CareRecipient | null> {
     const rows = await this.db
       .select()
       .from(careRecipients)
-      .where(and(eq(careRecipients.id, recipientId), eq(careRecipients.createdByUserId, userId)))
+      .where(eq(careRecipients.userId, userId))
       .limit(1);
 
     return rows[0] ? toDomain(rows[0]) : null;
   }
 
   /**
-   * Lists all care recipients for a caregiver.
+   * Finds a care recipient by ID, scoped to the authenticated user.
+   *
+   * User has access if:
+   * 1. They own the recipient profile (userId = user)
+   * 2. They created the recipient (createdByUserId = user) - deprecated
+   * 3. They have approved caregiver access
+   *
+   * @param userId - The authenticated user's ID
+   * @param recipientId - The care recipient's UUID
+   * @returns The care recipient if found and user has access, null otherwise
+   */
+  async findById(userId: UserId, recipientId: string): Promise<CareRecipient | null> {
+    // Build the access check: user owns it, created it, or has approved caregiver access
+    const hasApprovedAccess = sql`EXISTS (
+      SELECT 1 FROM ${caregiverAccess}
+      WHERE ${caregiverAccess.caregiverUserId} = ${userId}
+        AND ${caregiverAccess.recipientUserId} = ${careRecipients.userId}
+        AND ${caregiverAccess.status} = 'approved'
+    )`;
+
+    const rows = await this.db
+      .select()
+      .from(careRecipients)
+      .where(
+        and(
+          eq(careRecipients.id, recipientId),
+          or(
+            eq(careRecipients.userId, userId), // I am the recipient
+            eq(careRecipients.createdByUserId, userId), // I created it (deprecated)
+            hasApprovedAccess // I have caregiver access
+          )
+        )
+      )
+      .limit(1);
+
+    return rows[0] ? toDomain(rows[0]) : null;
+  }
+
+  /**
+   * Lists all care recipients the user can access.
+   *
+   * Returns recipients where:
+   * 1. The user owns the profile (userId = user) - new model
+   * 2. The user created the recipient (createdByUserId = user) - deprecated
+   * 3. The user has approved caregiver access
    *
    * @param userId - The authenticated user's ID
    * @returns Array of care recipients, ordered by creation date ascending
    */
   async listForCaregiver(userId: UserId): Promise<CareRecipient[]> {
+    // Build the access check: user owns it, created it, or has approved caregiver access
+    const hasApprovedAccess = sql`EXISTS (
+      SELECT 1 FROM ${caregiverAccess}
+      WHERE ${caregiverAccess.caregiverUserId} = ${userId}
+        AND ${caregiverAccess.recipientUserId} = ${careRecipients.userId}
+        AND ${caregiverAccess.status} = 'approved'
+    )`;
+
     const rows = await this.db
       .select()
       .from(careRecipients)
-      .where(eq(careRecipients.createdByUserId, userId))
+      .where(
+        or(
+          eq(careRecipients.userId, userId), // I am the recipient
+          eq(careRecipients.createdByUserId, userId), // I created it (deprecated)
+          hasApprovedAccess // I have caregiver access
+        )
+      )
       .orderBy(asc(careRecipients.createdAt));
 
     return rows.map(toDomain);
@@ -108,11 +167,54 @@ export class DrizzleCareRecipientRepository implements CareRecipientRepository {
   /**
    * Updates a care recipient's display name and/or timezone.
    *
+   * User can update if:
+   * 1. They own the recipient profile (userId = user)
+   * 2. They created the recipient (createdByUserId = user) - deprecated
+   * 3. They have approved caregiver access
+   *
    * @param userId - The authenticated user's ID
    * @param recipientId - The care recipient's UUID
    * @param input - Fields to update (only provided fields are changed)
-   * @returns The updated care recipient if found and owned by user, null otherwise
+   * @returns The updated care recipient if found and user has access, null otherwise
    */
+  /**
+   * Finds or creates the user's own care recipient profile.
+   *
+   * In the new model, every user IS a care recipient who controls their own profile.
+   * This method ensures a profile exists for the user when they first sign in.
+   *
+   * @param userId - The user's ID (becomes the profile owner)
+   * @param displayName - Display name to use if creating a new profile
+   * @returns The user's care recipient profile
+   */
+  async findOrCreateOwnProfile(
+    userId: UserId,
+    displayName: string
+  ): Promise<CareRecipient> {
+    // First, try to find existing profile
+    const existing = await this.db
+      .select()
+      .from(careRecipients)
+      .where(eq(careRecipients.userId, userId))
+      .limit(1);
+
+    if (existing[0]) {
+      return toDomain(existing[0]);
+    }
+
+    // Create new profile for the user
+    const rows = await this.db
+      .insert(careRecipients)
+      .values({
+        userId,
+        displayName,
+        timezone: 'America/New_York',
+      })
+      .returning();
+
+    return toDomain(rows[0]!);
+  }
+
   async update(
     userId: UserId,
     recipientId: string,
@@ -130,10 +232,27 @@ export class DrizzleCareRecipientRepository implements CareRecipientRepository {
       updates.timezone = input.timezone;
     }
 
+    // Build the access check: user owns it, created it, or has approved caregiver access
+    const hasApprovedAccess = sql`EXISTS (
+      SELECT 1 FROM ${caregiverAccess}
+      WHERE ${caregiverAccess.caregiverUserId} = ${userId}
+        AND ${caregiverAccess.recipientUserId} = ${careRecipients.userId}
+        AND ${caregiverAccess.status} = 'approved'
+    )`;
+
     const rows = await this.db
       .update(careRecipients)
       .set(updates)
-      .where(and(eq(careRecipients.id, recipientId), eq(careRecipients.createdByUserId, userId)))
+      .where(
+        and(
+          eq(careRecipients.id, recipientId),
+          or(
+            eq(careRecipients.userId, userId), // I am the recipient
+            eq(careRecipients.createdByUserId, userId), // I created it (deprecated)
+            hasApprovedAccess // I have caregiver access
+          )
+        )
+      )
       .returning();
 
     return rows[0] ? toDomain(rows[0]) : null;

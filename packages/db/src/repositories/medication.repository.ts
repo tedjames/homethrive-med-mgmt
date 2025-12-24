@@ -3,9 +3,10 @@
  *
  * ## Authorization Pattern
  *
- * All methods require a `userId` parameter and filter queries by `createdByUserId`
- * to ensure users can only access their own medications. This is enforced at the
- * database query level for defense-in-depth.
+ * All methods require a `userId` parameter and check access based on:
+ * 1. User owns the recipient profile (careRecipients.userId = user)
+ * 2. User created the recipient (careRecipients.createdByUserId = user) - deprecated
+ * 3. User has approved caregiver access via caregiver_access table
  *
  * ## Key Invariants
  *
@@ -27,10 +28,10 @@ import type {
   UserId,
 } from '@homethrive/core';
 import { CareRecipientNotFoundError } from '@homethrive/core';
-import { and, asc, eq } from 'drizzle-orm';
+import { and, asc, eq, or, sql } from 'drizzle-orm';
 
 import type { DbClient } from '../connection.js';
-import { careRecipients, medicationSchedules, medications } from '../schema/core.js';
+import { caregiverAccess, careRecipients, medicationSchedules, medications } from '../schema/core.js';
 
 /**
  * Maps a database schedule row to the domain MedicationSchedule type.
@@ -71,23 +72,45 @@ function toDomain(row: typeof medications.$inferSelect): Medication {
   };
 }
 
+/**
+ * Builds a SQL condition to check if a user has access to a care recipient.
+ *
+ * User has access if:
+ * 1. They own the recipient profile (careRecipients.userId = user)
+ * 2. They created the recipient (careRecipients.createdByUserId = user) - deprecated
+ * 3. They have approved caregiver access
+ */
+function buildRecipientAccessCheck(userId: UserId) {
+  const hasApprovedAccess = sql`EXISTS (
+    SELECT 1 FROM ${caregiverAccess}
+    WHERE ${caregiverAccess.caregiverUserId} = ${userId}
+      AND ${caregiverAccess.recipientUserId} = ${careRecipients.userId}
+      AND ${caregiverAccess.status} = 'approved'
+  )`;
+
+  return or(
+    eq(careRecipients.userId, userId), // User owns the recipient
+    eq(careRecipients.createdByUserId, userId), // User created it (deprecated)
+    hasApprovedAccess // User has caregiver access
+  );
+}
+
 export class DrizzleMedicationRepository implements MedicationRepository {
   constructor(private readonly db: DbClient) {}
 
   /**
    * Atomically creates a medication with its associated schedules in a single transaction.
    *
-   * @param userId - The authenticated user's ID (must own the care recipient)
+   * @param userId - The authenticated user's ID (must have access to the care recipient)
    * @param recipientId - The care recipient this medication is for
    * @param medicationInput - Medication name and optional instructions
    * @param schedulesInput - Array of schedule definitions (recurrence, time, etc.)
    * @returns The created medication and its schedules
-   * @throws {CareRecipientNotFoundError} If recipient doesn't exist or isn't owned by user
+   * @throws {CareRecipientNotFoundError} If recipient doesn't exist or user lacks access
    *
    * @remarks
    * - Uses a database transaction to ensure atomicity
-   * - Validates recipient ownership before creating (clearer errors than FK violation)
-   * - The DB also enforces ownership via composite FK as defense-in-depth
+   * - Validates recipient access before creating (clearer errors than FK violation)
    */
   async createWithSchedules(
     userId: UserId,
@@ -96,11 +119,11 @@ export class DrizzleMedicationRepository implements MedicationRepository {
     schedulesInput: Array<Omit<CreateScheduleInput, 'medicationId'>>
   ): Promise<{ medication: Medication; schedules: MedicationSchedule[] }> {
     return this.db.transaction(async (tx: DbClient) => {
-      // Verify recipient exists and belongs to this user
+      // Verify recipient exists and user has access
       const recipientRows = await tx
         .select({ id: careRecipients.id })
         .from(careRecipients)
-        .where(and(eq(careRecipients.id, recipientId), eq(careRecipients.createdByUserId, userId)))
+        .where(and(eq(careRecipients.id, recipientId), buildRecipientAccessCheck(userId)))
         .limit(1);
 
       if (recipientRows.length === 0) {
@@ -143,24 +166,25 @@ export class DrizzleMedicationRepository implements MedicationRepository {
   }
 
   /**
-   * Finds a medication by ID, scoped to the authenticated user.
+   * Finds a medication by ID, scoped to the authenticated user's access.
    *
    * @param userId - The authenticated user's ID
    * @param medicationId - The medication's UUID
-   * @returns The medication if found and owned by user, null otherwise
+   * @returns The medication if found and user has access to the recipient, null otherwise
    */
   async findById(userId: UserId, medicationId: string): Promise<Medication | null> {
     const rows = await this.db
-      .select()
+      .select({ medication: medications })
       .from(medications)
-      .where(and(eq(medications.id, medicationId), eq(medications.createdByUserId, userId)))
+      .innerJoin(careRecipients, eq(medications.recipientId, careRecipients.id))
+      .where(and(eq(medications.id, medicationId), buildRecipientAccessCheck(userId)))
       .limit(1);
 
-    return rows[0] ? toDomain(rows[0]) : null;
+    return rows[0] ? toDomain(rows[0].medication) : null;
   }
 
   /**
-   * Lists all medications for a care recipient, scoped to the authenticated user.
+   * Lists all medications for a care recipient, scoped to the authenticated user's access.
    *
    * @param userId - The authenticated user's ID
    * @param recipientId - The care recipient's UUID
@@ -174,17 +198,23 @@ export class DrizzleMedicationRepository implements MedicationRepository {
   ): Promise<Medication[]> {
     const includeInactive = options?.includeInactive ?? false;
 
-    const whereClause = includeInactive
-      ? and(eq(medications.recipientId, recipientId), eq(medications.createdByUserId, userId))
-      : and(eq(medications.recipientId, recipientId), eq(medications.createdByUserId, userId), eq(medications.isActive, true));
+    const accessConditions = [
+      eq(medications.recipientId, recipientId),
+      buildRecipientAccessCheck(userId),
+    ];
+
+    if (!includeInactive) {
+      accessConditions.push(eq(medications.isActive, true));
+    }
 
     const rows = await this.db
-      .select()
+      .select({ medication: medications })
       .from(medications)
-      .where(whereClause)
+      .innerJoin(careRecipients, eq(medications.recipientId, careRecipients.id))
+      .where(and(...accessConditions))
       .orderBy(asc(medications.createdAt));
 
-    return rows.map(toDomain);
+    return rows.map((row) => toDomain(row.medication));
   }
 
   /**
@@ -219,7 +249,7 @@ export class DrizzleMedicationRepository implements MedicationRepository {
    * @param userId - The authenticated user's ID
    * @param medicationId - The medication's UUID
    * @param input - Fields to update (only provided fields are changed)
-   * @returns The updated medication if found and owned by user, null otherwise
+   * @returns The updated medication if found and user has access, null otherwise
    */
   async update(userId: UserId, medicationId: string, input: UpdateMedicationInput): Promise<Medication | null> {
     const updates: Partial<typeof medications.$inferInsert> = {
@@ -234,10 +264,26 @@ export class DrizzleMedicationRepository implements MedicationRepository {
       updates.instructions = input.instructions;
     }
 
+    // Build access check subquery
+    const hasAccess = sql`EXISTS (
+      SELECT 1 FROM ${careRecipients}
+      WHERE ${careRecipients.id} = ${medications.recipientId}
+        AND (
+          ${careRecipients.userId} = ${userId}
+          OR ${careRecipients.createdByUserId} = ${userId}
+          OR EXISTS (
+            SELECT 1 FROM ${caregiverAccess}
+            WHERE ${caregiverAccess.caregiverUserId} = ${userId}
+              AND ${caregiverAccess.recipientUserId} = ${careRecipients.userId}
+              AND ${caregiverAccess.status} = 'approved'
+          )
+        )
+    )`;
+
     const rows = await this.db
       .update(medications)
       .set(updates)
-      .where(and(eq(medications.id, medicationId), eq(medications.createdByUserId, userId)))
+      .where(and(eq(medications.id, medicationId), hasAccess))
       .returning();
 
     return rows[0] ? toDomain(rows[0]) : null;
@@ -249,13 +295,29 @@ export class DrizzleMedicationRepository implements MedicationRepository {
    * @param userId - The authenticated user's ID
    * @param medicationId - The medication's UUID
    * @param inactiveAt - Timestamp when the medication became inactive
-   * @returns The updated medication if found and owned by user, null otherwise
+   * @returns The updated medication if found and user has access, null otherwise
    *
    * @remarks
    * Medications are never hard-deleted to preserve dose history for audit/compliance.
    * Use `listByRecipient({ includeInactive: true })` to see inactive medications.
    */
   async setInactive(userId: UserId, medicationId: string, inactiveAt: Date): Promise<Medication | null> {
+    // Build access check subquery
+    const hasAccess = sql`EXISTS (
+      SELECT 1 FROM ${careRecipients}
+      WHERE ${careRecipients.id} = ${medications.recipientId}
+        AND (
+          ${careRecipients.userId} = ${userId}
+          OR ${careRecipients.createdByUserId} = ${userId}
+          OR EXISTS (
+            SELECT 1 FROM ${caregiverAccess}
+            WHERE ${caregiverAccess.caregiverUserId} = ${userId}
+              AND ${caregiverAccess.recipientUserId} = ${careRecipients.userId}
+              AND ${caregiverAccess.status} = 'approved'
+          )
+        )
+    )`;
+
     const rows = await this.db
       .update(medications)
       .set({
@@ -263,7 +325,44 @@ export class DrizzleMedicationRepository implements MedicationRepository {
         inactiveAt,
         updatedAt: new Date(),
       })
-      .where(and(eq(medications.id, medicationId), eq(medications.createdByUserId, userId)))
+      .where(and(eq(medications.id, medicationId), hasAccess))
+      .returning();
+
+    return rows[0] ? toDomain(rows[0]) : null;
+  }
+
+  /**
+   * Reactivates an inactive medication by marking it active again.
+   *
+   * @param userId - The authenticated user's ID
+   * @param medicationId - The medication's UUID
+   * @returns The updated medication if found and user has access, null otherwise
+   */
+  async setActive(userId: UserId, medicationId: string): Promise<Medication | null> {
+    // Build access check subquery
+    const hasAccess = sql`EXISTS (
+      SELECT 1 FROM ${careRecipients}
+      WHERE ${careRecipients.id} = ${medications.recipientId}
+        AND (
+          ${careRecipients.userId} = ${userId}
+          OR ${careRecipients.createdByUserId} = ${userId}
+          OR EXISTS (
+            SELECT 1 FROM ${caregiverAccess}
+            WHERE ${caregiverAccess.caregiverUserId} = ${userId}
+              AND ${caregiverAccess.recipientUserId} = ${careRecipients.userId}
+              AND ${caregiverAccess.status} = 'approved'
+          )
+        )
+    )`;
+
+    const rows = await this.db
+      .update(medications)
+      .set({
+        isActive: true,
+        inactiveAt: null,
+        updatedAt: new Date(),
+      })
+      .where(and(eq(medications.id, medicationId), hasAccess))
       .returning();
 
     return rows[0] ? toDomain(rows[0]) : null;

@@ -19,6 +19,14 @@ import {
 export const recurrenceTypeEnum = pgEnum('recurrence_type_enum', ['daily', 'weekly']);
 export type RecurrenceTypeEnum = (typeof recurrenceTypeEnum.enumValues)[number];
 
+export const accessStatusEnum = pgEnum('access_status_enum', [
+  'pending_request', // Caregiver requested access, awaiting recipient approval
+  'pending_invite', // Recipient invited caregiver, awaiting caregiver acceptance
+  'approved', // Active access granted
+  'revoked', // Access was revoked or denied
+]);
+export type AccessStatusEnum = (typeof accessStatusEnum.enumValues)[number];
+
 // --------------------
 // Tables
 // --------------------
@@ -28,13 +36,31 @@ export const users = pgTable('users', {
    *
    * We treat this as the canonical user identifier across the system for now,
    * since it is what we receive on each authenticated request.
-   * 
+   *
    * Note: We could also rely on a different ID to decouple the user from the Clerk user ID which may be better...
    */
   clerkUserId: text('clerk_user_id').primaryKey(),
   email: text('email'),
   displayName: text('display_name'),
   imageUrl: text('image_url'),
+  /**
+   * User's IANA timezone (e.g. "America/New_York").
+   * Set during onboarding.
+   */
+  timezone: text('timezone'),
+  /**
+   * Whether the user is a care recipient (takes medications themselves).
+   */
+  isRecipient: boolean('is_recipient').notNull().default(false),
+  /**
+   * Whether the user is a caregiver (helps manage medications for others).
+   */
+  isCaregiver: boolean('is_caregiver').notNull().default(false),
+  /**
+   * Whether the user has completed the onboarding flow.
+   * Users cannot access the main app until this is true.
+   */
+  hasCompletedOnboarding: boolean('has_completed_onboarding').notNull().default(false),
   createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
     .notNull()
     .defaultNow(),
@@ -49,9 +75,19 @@ export const careRecipients = pgTable(
     id: uuid('id')
       .primaryKey()
       .default(sql`gen_random_uuid()`),
-    createdByUserId: text('created_by_user_id')
-      .notNull()
-      .references(() => users.clerkUserId, { onDelete: 'cascade' }),
+    /**
+     * The user who owns this care recipient profile.
+     * In the new model, a care recipient IS a user who controls their own profile.
+     * This is nullable during migration but will be required for new profiles.
+     */
+    userId: text('user_id').references(() => users.clerkUserId, { onDelete: 'cascade' }),
+    /**
+     * @deprecated Use userId instead. This was the old model where caregivers created recipients.
+     * Kept for backwards compatibility with existing data.
+     */
+    createdByUserId: text('created_by_user_id').references(() => users.clerkUserId, {
+      onDelete: 'cascade',
+    }),
     displayName: text('display_name').notNull(),
     timezone: text('timezone').notNull().default('America/New_York'),
     createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
@@ -62,6 +98,9 @@ export const careRecipients = pgTable(
       .defaultNow(),
   },
   (t) => [
+    index('care_recipients_user_id_idx').on(t.userId),
+    uniqueIndex('care_recipients_user_id_unique').on(t.userId),
+    // @deprecated - kept for backwards compatibility
     index('care_recipients_created_by_user_id_idx').on(t.createdByUserId),
     // Unique constraint to support composite FK from medications
     uniqueIndex('care_recipients_id_created_by_user_id_unique').on(t.id, t.createdByUserId),
@@ -192,5 +231,67 @@ export const doseTaken = pgTable(
     index('dose_taken_medication_scheduled_for_idx').on(t.medicationId, t.scheduledFor),
     index('dose_taken_taken_by_user_id_idx').on(t.takenByUserId),
     uniqueIndex('dose_taken_schedule_scheduled_for_unique').on(t.scheduleId, t.scheduledFor),
+  ]
+);
+
+/**
+ * Caregiver access relationships.
+ * Links caregivers to care recipients they have access to manage.
+ *
+ * Flow:
+ * - Caregiver requests access → status = 'pending_request' → recipient approves → 'approved'
+ * - Recipient invites caregiver → status = 'pending_invite' → caregiver accepts → 'approved'
+ * - Either party can revoke → status = 'revoked'
+ */
+export const caregiverAccess = pgTable(
+  'caregiver_access',
+  {
+    id: uuid('id')
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    /**
+     * The user requesting/granted caregiver access.
+     */
+    caregiverUserId: text('caregiver_user_id')
+      .notNull()
+      .references(() => users.clerkUserId, { onDelete: 'cascade' }),
+    /**
+     * The care recipient (user) granting access.
+     * This references the user who owns the care recipient profile.
+     */
+    recipientUserId: text('recipient_user_id')
+      .notNull()
+      .references(() => users.clerkUserId, { onDelete: 'cascade' }),
+    /**
+     * Current status of the access relationship.
+     */
+    status: accessStatusEnum('status').notNull(),
+    /**
+     * When the access was first requested/invited.
+     */
+    requestedAt: timestamp('requested_at', { withTimezone: true, mode: 'date' }),
+    /**
+     * When the access was approved/accepted (status changed to 'approved').
+     */
+    approvedAt: timestamp('approved_at', { withTimezone: true, mode: 'date' }),
+    /**
+     * When the access was revoked (status changed to 'revoked').
+     */
+    revokedAt: timestamp('revoked_at', { withTimezone: true, mode: 'date' }),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index('caregiver_access_caregiver_user_id_idx').on(t.caregiverUserId),
+    index('caregiver_access_recipient_user_id_idx').on(t.recipientUserId),
+    index('caregiver_access_status_idx').on(t.status),
+    // Only one active (non-revoked) relationship per caregiver-recipient pair
+    uniqueIndex('caregiver_access_active_unique')
+      .on(t.caregiverUserId, t.recipientUserId)
+      .where(sql`${t.status} != 'revoked'`),
   ]
 );

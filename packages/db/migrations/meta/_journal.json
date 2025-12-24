@@ -22,6 +22,20 @@
       "when": 1766355641854,
       "tag": "0002_sudden_overlord",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1766522987137,
+      "tag": "0003_clumsy_karen_page",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1766537114221,
+      "tag": "0004_legal_martin_li",
+      "breakpoints": true
     }
   ]
 }

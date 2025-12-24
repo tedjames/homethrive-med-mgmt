@@ -35,6 +35,16 @@ export type UpsertUserInput = {
   imageUrl?: string | null;
 };
 
+/**
+ * Input for completing user onboarding.
+ */
+export type CompleteOnboardingInput = {
+  displayName: string;
+  timezone: string;
+  isRecipient: boolean;
+  isCaregiver: boolean;
+};
+
 export class DrizzleUserRepository {
   constructor(private readonly db: DbClient) {}
 
@@ -104,6 +114,41 @@ export class DrizzleUserRepository {
 
     // Postgres will always return one row on successful insert/update.
     return rows[0]!;
+  }
+
+  /**
+   * Completes user onboarding with profile data.
+   * Sets hasCompletedOnboarding to true.
+   *
+   * @param clerkUserId - The Clerk-issued user identifier
+   * @param input - Onboarding data (display name, timezone, roles)
+   * @returns The updated user record
+   * @throws Error if user is not found
+   */
+  async completeOnboarding(
+    clerkUserId: string,
+    input: CompleteOnboardingInput
+  ): Promise<typeof users.$inferSelect> {
+    const now = new Date();
+
+    const rows = await this.db
+      .update(users)
+      .set({
+        displayName: input.displayName,
+        timezone: input.timezone,
+        isRecipient: input.isRecipient,
+        isCaregiver: input.isCaregiver,
+        hasCompletedOnboarding: true,
+        updatedAt: now,
+      })
+      .where(eq(users.clerkUserId, clerkUserId))
+      .returning();
+
+    if (!rows[0]) {
+      throw new Error(`User not found: ${clerkUserId}`);
+    }
+
+    return rows[0];
   }
 }
 
