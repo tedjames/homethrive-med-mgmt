@@ -469,3 +469,5 @@ API_URL=https://api.your-domain.com AUTH_TOKEN=<clerk-jwt> pnpm --filter @hometh
 - Dose History Page: A dedicated page for viewing the full history of taken and missed doses would be useful for caregivers to audit medication compliance over time
 
 - Infinite Scroll Edge-Cases: There are some additional edge cases / optimizations we could have made here specifically if a user only has one medication scheduled weekly and if it's 6 days out - a bunch of API calls are made in succession. This could be optimized of course but wasn't done in the interest of time.
+
+- Github CI Workflows: Ideally we would have pipelines to run all tests and a trunk-based branching stategy with feature branches that deploy to a live AWS dev env (like how Vercel preview envs work). Left this out in the interest of time.
