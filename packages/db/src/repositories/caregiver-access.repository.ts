@@ -23,10 +23,10 @@ import type {
   UserId,
   UserLookup,
 } from '@homethrive/core';
-import { and, eq, ne } from 'drizzle-orm';
+import { and, eq, ilike, ne, sql } from 'drizzle-orm';
 
 import type { DbClient } from '../connection.js';
-import { caregiverAccess, users } from '../schema/core.js';
+import { caregiverAccess, careRecipients, users } from '../schema/core.js';
 
 /**
  * Maps a database row to the domain CaregiverAccess type.
@@ -49,7 +49,7 @@ export class DrizzleCaregiverAccessRepository implements CaregiverAccessReposito
   constructor(private readonly db: DbClient) {}
 
   /**
-   * Find a user by their email address.
+   * Find a user by their email address (case-insensitive).
    */
   async findUserByEmail(email: string): Promise<UserLookup | null> {
     const rows = await this.db
@@ -59,7 +59,7 @@ export class DrizzleCaregiverAccessRepository implements CaregiverAccessReposito
         displayName: users.displayName,
       })
       .from(users)
-      .where(eq(users.email, email))
+      .where(ilike(users.email, email))
       .limit(1);
 
     return rows[0] ?? null;
@@ -140,16 +140,18 @@ export class DrizzleCaregiverAccessRepository implements CaregiverAccessReposito
   /**
    * List all caregivers for a recipient (with user details).
    * Returns all non-revoked relationships.
+   * Display name priority: care_recipients.displayName > users.displayName > users.email
    */
   async listCaregiversForRecipient(recipientUserId: UserId): Promise<CaregiverAccessWithUser[]> {
     const rows = await this.db
       .select({
         access: caregiverAccess,
-        caregiverDisplayName: users.displayName,
+        caregiverDisplayName: sql<string | null>`COALESCE(${careRecipients.displayName}, ${users.displayName}, ${users.email})`,
         caregiverEmail: users.email,
       })
       .from(caregiverAccess)
       .leftJoin(users, eq(caregiverAccess.caregiverUserId, users.clerkUserId))
+      .leftJoin(careRecipients, eq(caregiverAccess.caregiverUserId, careRecipients.userId))
       .where(
         and(
           eq(caregiverAccess.recipientUserId, recipientUserId),
@@ -163,6 +165,8 @@ export class DrizzleCaregiverAccessRepository implements CaregiverAccessReposito
       caregiverEmail: row.caregiverEmail,
       recipientDisplayName: null, // Not needed when listing for recipient
       recipientEmail: null,
+      recipientCareRecipientId: null, // Not needed when listing for recipient
+      recipientTimezone: null, // Not needed when listing for recipient
     }));
   }
 
@@ -174,11 +178,14 @@ export class DrizzleCaregiverAccessRepository implements CaregiverAccessReposito
     const rows = await this.db
       .select({
         access: caregiverAccess,
-        recipientDisplayName: users.displayName,
+        recipientDisplayName: careRecipients.displayName,
         recipientEmail: users.email,
+        recipientCareRecipientId: careRecipients.id,
+        recipientTimezone: careRecipients.timezone,
       })
       .from(caregiverAccess)
       .leftJoin(users, eq(caregiverAccess.recipientUserId, users.clerkUserId))
+      .leftJoin(careRecipients, eq(users.clerkUserId, careRecipients.userId))
       .where(
         and(
           eq(caregiverAccess.caregiverUserId, caregiverUserId),
@@ -192,6 +199,8 @@ export class DrizzleCaregiverAccessRepository implements CaregiverAccessReposito
       caregiverEmail: null,
       recipientDisplayName: row.recipientDisplayName,
       recipientEmail: row.recipientEmail,
+      recipientCareRecipientId: row.recipientCareRecipientId,
+      recipientTimezone: row.recipientTimezone,
     }));
   }
 

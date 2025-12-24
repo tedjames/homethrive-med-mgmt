@@ -36,6 +36,20 @@
       "when": 1766537114221,
       "tag": "0004_legal_martin_li",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1766563230341,
+      "tag": "0005_furry_shocker",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1766579703838,
+      "tag": "0006_groovy_firestar",
+      "breakpoints": true
     }
   ]
 }

@@ -158,6 +158,7 @@ export const medicationSchedules = pgTable(
     daysOfWeek: smallint('days_of_week').array(),
     startDate: date('start_date', { mode: 'string' }).notNull(),
     endDate: date('end_date', { mode: 'string' }),
+    dosageNotes: text('dosage_notes'),
     createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
       .notNull()
       .defaultNow(),

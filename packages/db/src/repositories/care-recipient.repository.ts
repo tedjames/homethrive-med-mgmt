@@ -199,14 +199,27 @@ export class DrizzleCareRecipientRepository implements CareRecipientRepository {
       .limit(1);
 
     if (existing[0]) {
+      // If createdByUserId is null, update it to match userId.
+      // This is needed for the composite FK in medications table and
+      // fixes profiles created before this field was set.
+      if (existing[0].createdByUserId === null) {
+        const updated = await this.db
+          .update(careRecipients)
+          .set({ createdByUserId: userId, updatedAt: new Date() })
+          .where(eq(careRecipients.id, existing[0].id))
+          .returning();
+        return toDomain(updated[0]!);
+      }
       return toDomain(existing[0]);
     }
 
-    // Create new profile for the user
+    // Create new profile for the user.
+    // Set both userId (owner) and createdByUserId (for composite FK compatibility).
     const rows = await this.db
       .insert(careRecipients)
       .values({
         userId,
+        createdByUserId: userId,
         displayName,
         timezone: 'America/New_York',
       })

@@ -45,6 +45,14 @@ export type CompleteOnboardingInput = {
   isCaregiver: boolean;
 };
 
+/**
+ * Input for updating user roles.
+ */
+export type UpdateRolesInput = {
+  isRecipient: boolean;
+  isCaregiver: boolean;
+};
+
 export class DrizzleUserRepository {
   constructor(private readonly db: DbClient) {}
 
@@ -139,6 +147,37 @@ export class DrizzleUserRepository {
         isRecipient: input.isRecipient,
         isCaregiver: input.isCaregiver,
         hasCompletedOnboarding: true,
+        updatedAt: now,
+      })
+      .where(eq(users.clerkUserId, clerkUserId))
+      .returning();
+
+    if (!rows[0]) {
+      throw new Error(`User not found: ${clerkUserId}`);
+    }
+
+    return rows[0];
+  }
+
+  /**
+   * Updates user roles.
+   *
+   * @param clerkUserId - The Clerk-issued user identifier
+   * @param input - Role update data
+   * @returns The updated user record
+   * @throws Error if user is not found
+   */
+  async updateRoles(
+    clerkUserId: string,
+    input: UpdateRolesInput
+  ): Promise<typeof users.$inferSelect> {
+    const now = new Date();
+
+    const rows = await this.db
+      .update(users)
+      .set({
+        isRecipient: input.isRecipient,
+        isCaregiver: input.isCaregiver,
         updatedAt: now,
       })
       .where(eq(users.clerkUserId, clerkUserId))

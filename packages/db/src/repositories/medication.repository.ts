@@ -10,8 +10,8 @@
  *
  * ## Key Invariants
  *
- * - **Medications cannot be deleted**: Only soft-deleted via `setInactive()`.
- *   This preserves dose history for audit/compliance.
+ * - **Medications can be permanently deleted**: Only after deactivation via `setInactive()`.
+ *   Deletion cascades to schedules and dose history. Use `delete()` method.
  *
  * - **Atomic creation**: `createWithSchedules()` ensures a medication and its
  *   schedules are created together in a transaction, preventing orphaned records.
@@ -51,6 +51,7 @@ function toScheduleDomain(
     daysOfWeek: row.daysOfWeek ?? null,
     startDate: row.startDate,
     endDate: row.endDate ?? null,
+    dosageNotes: row.dosageNotes ?? null,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };
@@ -157,6 +158,7 @@ export class DrizzleMedicationRepository implements MedicationRepository {
                   daysOfWeek: s.daysOfWeek ?? null,
                   startDate: s.startDate,
                   endDate: s.endDate ?? null,
+                  dosageNotes: s.dosageNotes ?? null,
                 }))
               )
               .returning();
@@ -366,6 +368,40 @@ export class DrizzleMedicationRepository implements MedicationRepository {
       .returning();
 
     return rows[0] ? toDomain(rows[0]) : null;
+  }
+
+  /**
+   * Permanently deletes a medication and all associated data.
+   *
+   * Related data (schedules, dose_taken) is automatically deleted via ON DELETE CASCADE.
+   *
+   * @param userId - The authenticated user's ID
+   * @param medicationId - The medication's UUID
+   * @returns true if deletion succeeded, false if medication not found or user lacks access
+   */
+  async delete(userId: UserId, medicationId: string): Promise<boolean> {
+    // Build access check subquery
+    const hasAccess = sql`EXISTS (
+      SELECT 1 FROM ${careRecipients}
+      WHERE ${careRecipients.id} = ${medications.recipientId}
+        AND (
+          ${careRecipients.userId} = ${userId}
+          OR ${careRecipients.createdByUserId} = ${userId}
+          OR EXISTS (
+            SELECT 1 FROM ${caregiverAccess}
+            WHERE ${caregiverAccess.caregiverUserId} = ${userId}
+              AND ${caregiverAccess.recipientUserId} = ${careRecipients.userId}
+              AND ${caregiverAccess.status} = 'approved'
+          )
+        )
+    )`;
+
+    const rows = await this.db
+      .delete(medications)
+      .where(and(eq(medications.id, medicationId), hasAccess))
+      .returning({ id: medications.id });
+
+    return rows.length > 0;
   }
 }
 

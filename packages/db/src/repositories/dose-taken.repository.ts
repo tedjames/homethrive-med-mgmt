@@ -107,6 +107,37 @@ export class DrizzleDoseTakenRepository implements DoseTakenRepository {
   }
 
   /**
+   * Removes the taken record for a dose.
+   *
+   * @param _userId - Ignored; authorization is handled by the service layer
+   * @param scheduleId - The schedule ID of the dose
+   * @param scheduledFor - The scheduled time of the dose
+   * @returns True if a record was deleted, false if no record existed
+   *
+   * @remarks
+   * - **Idempotent**: Returns false (no error) if dose was not marked taken
+   * - **Trust-caller pattern**: Does NOT verify user owns the schedule;
+   *   the service layer must validate access before calling this method
+   */
+  async unmarkTaken(
+    _userId: UserId,
+    scheduleId: string,
+    scheduledFor: Date
+  ): Promise<boolean> {
+    const result = await this.db
+      .delete(doseTaken)
+      .where(
+        and(
+          eq(doseTaken.scheduleId, scheduleId),
+          eq(doseTaken.scheduledFor, scheduledFor)
+        )
+      )
+      .returning({ id: doseTaken.id });
+
+    return result.length > 0;
+  }
+
+  /**
    * Retrieves a map of taken doses for the given schedules and time range.
    *
    * @param _userId - Ignored; authorization is handled by the service layer

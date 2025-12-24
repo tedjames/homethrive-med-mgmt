@@ -1,0 +1,1 @@
+ALTER TABLE "medication_schedules" ADD COLUMN "dosage_notes" text;
