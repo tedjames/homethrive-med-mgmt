@@ -20,13 +20,10 @@ export function RecipientSelector({ onSelect }: RecipientSelectorProps) {
     onSelect?.()
   }
 
+  // Hide the selector entirely when there are no care recipients
+  // Users will see the Request Access empty state on the care pages instead
   if (recipients.length === 0) {
-    return (
-      <div className="space-y-2">
-        <p className="text-xs font-medium text-muted-foreground">Managing medications for</p>
-        <p className="text-sm text-muted-foreground">No care recipients yet</p>
-      </div>
-    )
+    return null
   }
 
   return (

@@ -1,6 +1,5 @@
 import * as React from 'react'
-import { Plus, Trash2 } from 'lucide-react'
-import { toast } from 'sonner'
+import { Plus, Trash2, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -20,6 +19,7 @@ type AddMedicationSheetProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
   onSubmit: (data: MedicationFormData) => void
+  isLoading?: boolean
 }
 
 export type MedicationFormData = {
@@ -28,7 +28,7 @@ export type MedicationFormData = {
   schedules: ScheduleFormData[]
 }
 
-export function AddMedicationSheet({ open, onOpenChange, onSubmit }: AddMedicationSheetProps) {
+export function AddMedicationSheet({ open, onOpenChange, onSubmit, isLoading }: AddMedicationSheetProps) {
   const [name, setName] = React.useState('')
   const [instructions, setInstructions] = React.useState('')
   const [schedules, setSchedules] = React.useState<ScheduleFormData[]>([createDefaultSchedule()])
@@ -40,7 +40,7 @@ export function AddMedicationSheet({ open, onOpenChange, onSubmit }: AddMedicati
   }
 
   const handleOpenChange = (newOpen: boolean) => {
-    if (!newOpen) {
+    if (!newOpen && !isLoading) {
       resetForm()
     }
     onOpenChange(newOpen)
@@ -53,11 +53,6 @@ export function AddMedicationSheet({ open, onOpenChange, onSubmit }: AddMedicati
       instructions,
       schedules,
     })
-    toast.success('Medication added', {
-      description: `${name} has been added successfully.`,
-    })
-    resetForm()
-    onOpenChange(false)
   }
 
   const handleAddSchedule = () => {
@@ -156,11 +151,19 @@ export function AddMedicationSheet({ open, onOpenChange, onSubmit }: AddMedicati
               variant="outline"
               className="flex-1"
               onClick={() => handleOpenChange(false)}
+              disabled={isLoading}
             >
               Cancel
             </Button>
-            <Button type="submit" className="flex-1" disabled={!isValid}>
-              Add Medication
+            <Button type="submit" className="flex-1" disabled={!isValid || isLoading}>
+              {isLoading ? (
+                <>
+                  <Loader2 className="mr-2 size-4 animate-spin" />
+                  Adding...
+                </>
+              ) : (
+                'Add Medication'
+              )}
             </Button>
           </SheetFooter>
         </form>

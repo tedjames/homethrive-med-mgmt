@@ -1,11 +1,11 @@
 import * as React from 'react'
 import confetti from 'canvas-confetti'
-import { type MockDose, formatTime, formatDaysOfWeek } from '~/lib/mock-data'
+import { type Dose, formatTime, formatDaysOfWeek } from '~/lib/api-hooks'
 import { Checkbox } from '@/components/ui/checkbox'
 import { cn } from '@/lib/utils'
 
 type DoseCardProps = {
-  dose: MockDose
+  dose: Dose
   onToggle: (doseId: string, isTaken: boolean) => void
 }
 
@@ -64,6 +64,11 @@ export function DoseCard({ dose, onToggle }: DoseCardProps) {
           >
             {dose.medicationName}
           </span>
+          {dose.dosageNotes && (
+            <span className="text-sm text-muted-foreground">
+              ({dose.dosageNotes})
+            </span>
+          )}
         </div>
         <div className="mt-1 text-sm text-muted-foreground">
           {dose.recurrence === 'daily' ? (

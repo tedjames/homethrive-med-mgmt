@@ -1,9 +1,10 @@
 import * as React from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useRecipient } from '~/contexts/recipient-context'
-import { getScheduleForDays, type DaySchedule } from '~/lib/mock-data'
+import { useDaysSchedule, useMarkDoseTaken, useUnmarkDoseTaken, type DaySchedule } from '~/lib/api-hooks'
 import { ScheduleFeed } from '~/components/schedule-feed'
 import { CurrentRecipientBanner } from '~/components/current-recipient-banner'
+import { RequestAccessDialog } from '~/components/request-access-dialog'
 import {
   Empty,
   EmptyHeader,
@@ -14,7 +15,7 @@ import {
 } from '@/components/ui/empty'
 import { Button } from '@/components/ui/button'
 import { BlurFade } from '@/components/ui/blur-fade'
-import { ArrowUp, UserPlus } from 'lucide-react'
+import { ArrowUp, UserPlus, Loader2 } from 'lucide-react'
 
 export const Route = createFileRoute('/_authed/care/schedule')({
   component: CareSchedule,
@@ -24,62 +25,79 @@ const INITIAL_DAYS = 7
 const LOAD_MORE_DAYS = 7
 
 function CareSchedule() {
-  const { selectedRecipient, selectedRecipientId, recipients } = useRecipient()
-  const [days, setDays] = React.useState<DaySchedule[]>([])
-  const [isLoading, setIsLoading] = React.useState(false)
-  const [daysLoaded, setDaysLoaded] = React.useState(0)
+  const { selectedRecipient, selectedRecipientId, recipients, isLoading: recipientsLoading } = useRecipient()
+  const [daysToLoad, setDaysToLoad] = React.useState(INITIAL_DAYS)
   const [showScrollTop, setShowScrollTop] = React.useState(false)
+  const [localDays, setLocalDays] = React.useState<DaySchedule[]>([])
   const loadMoreRef = React.useRef<HTMLDivElement>(null)
 
-  // Load initial days
+  // Use recipient's timezone for proper cross-timezone support (ADR-005)
+  // Falls back to browser timezone if recipient timezone is not set
+  const timezone = selectedRecipient?.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone
+
+  const { days: apiDays, isLoading: dosesLoading } = useDaysSchedule(
+    selectedRecipientId ?? undefined,
+    timezone,
+    daysToLoad
+  )
+  const markDoseTaken = useMarkDoseTaken()
+  const unmarkDoseTaken = useUnmarkDoseTaken()
+
+  // Reset when recipient changes
   React.useEffect(() => {
-    if (selectedRecipientId) {
-      const today = new Date()
-      const initialDays = getScheduleForDays(selectedRecipientId, today, INITIAL_DAYS)
-      setDays(initialDays)
-      setDaysLoaded(INITIAL_DAYS)
-    } else {
-      setDays([])
-      setDaysLoaded(0)
-    }
+    setDaysToLoad(INITIAL_DAYS)
+    setLocalDays([])
   }, [selectedRecipientId])
 
-  // Simulate loading more days (will be replaced with React Query)
+  // Sync API data to local state for optimistic updates
+  // Only sync when not loading to prevent clearing data during "load more"
+  React.useEffect(() => {
+    if (!dosesLoading) {
+      setLocalDays(apiDays)
+    }
+  }, [apiDays, dosesLoading])
+
+  // Load more days
   const loadMoreDays = React.useCallback(() => {
-    if (!selectedRecipientId || isLoading) return
+    if (dosesLoading) return
+    setDaysToLoad((prev) => prev + LOAD_MORE_DAYS)
+  }, [dosesLoading])
 
-    setIsLoading(true)
-
-    // Simulate API delay
-    setTimeout(() => {
-      const today = new Date()
-      const startDate = new Date(today)
-      startDate.setDate(today.getDate() + daysLoaded)
-
-      const moreDays = getScheduleForDays(selectedRecipientId, startDate, LOAD_MORE_DAYS)
-      setDays((prev) => [...prev, ...moreDays])
-      setDaysLoaded((prev) => prev + LOAD_MORE_DAYS)
-      setIsLoading(false)
-    }, 1000)
-  }, [selectedRecipientId, isLoading, daysLoaded])
+  // Track if we should load more when loading finishes (for cases where user scrolled while loading)
+  const shouldLoadMoreRef = React.useRef(false)
 
   // Intersection Observer for infinite scroll
   React.useEffect(() => {
+    const currentRef = loadMoreRef.current
+    if (!currentRef) return
+
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting && !isLoading && daysLoaded > 0) {
-          loadMoreDays()
+        const isIntersecting = entries[0]?.isIntersecting ?? false
+
+        if (isIntersecting && localDays.length > 0) {
+          if (dosesLoading) {
+            // Mark that we should load more when loading finishes
+            shouldLoadMoreRef.current = true
+          } else {
+            loadMoreDays()
+          }
         }
       },
-      { threshold: 0.1 }
+      { threshold: 0.1, rootMargin: '100px' }
     )
 
-    if (loadMoreRef.current) {
-      observer.observe(loadMoreRef.current)
-    }
-
+    observer.observe(currentRef)
     return () => observer.disconnect()
-  }, [loadMoreDays, isLoading, daysLoaded])
+  }, [loadMoreDays, dosesLoading, localDays.length])
+
+  // Handle deferred load more (when user scrolled while loading)
+  React.useEffect(() => {
+    if (!dosesLoading && shouldLoadMoreRef.current) {
+      shouldLoadMoreRef.current = false
+      loadMoreDays()
+    }
+  }, [dosesLoading, loadMoreDays])
 
   // Scroll to top button visibility
   React.useEffect(() => {
@@ -95,9 +113,12 @@ function CareSchedule() {
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
-  // Handle marking a dose as taken/untaken
+  // Handle marking a dose as taken/untaken with optimistic update
   const handleToggleDose = (doseId: string, isTaken: boolean) => {
-    setDays((prev) =>
+    if (!selectedRecipientId) return
+
+    // Optimistic update
+    setLocalDays((prev) =>
       prev.map((day) => ({
         ...day,
         morning: day.morning.map((dose) =>
@@ -116,6 +137,22 @@ function CareSchedule() {
             : dose
         ),
       }))
+    )
+
+    // Call API
+    if (isTaken) {
+      markDoseTaken.mutate({ doseId, recipientId: selectedRecipientId })
+    } else {
+      unmarkDoseTaken.mutate({ doseId, recipientId: selectedRecipientId })
+    }
+  }
+
+  // Loading recipients
+  if (recipientsLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="size-6 animate-spin text-muted-foreground" />
+      </div>
     )
   }
 
@@ -144,10 +181,14 @@ function CareSchedule() {
         </p>
       </div>
 
-      <ScheduleFeed days={days} onToggle={handleToggleDose} isLoading={isLoading} />
-
-      {/* Intersection observer trigger */}
-      <div ref={loadMoreRef} className="h-4" />
+      <ScheduleFeed
+        days={localDays}
+        timezone={timezone}
+        onToggle={handleToggleDose}
+        isLoading={dosesLoading}
+        onLoadMore={loadMoreDays}
+        loadMoreRef={loadMoreRef}
+      />
 
       {/* Scroll to top button */}
       {showScrollTop && (
@@ -168,20 +209,29 @@ function CareSchedule() {
 }
 
 function NoRecipientsView() {
+  const [dialogOpen, setDialogOpen] = React.useState(false)
+
   return (
-    <Empty className="min-h-[400px]">
-      <EmptyHeader>
-        <EmptyMedia variant="icon">
-          <UserPlus />
-        </EmptyMedia>
-        <EmptyTitle>No Care Recipients</EmptyTitle>
-        <EmptyDescription>
-          Request access to a care recipient or wait for an invitation to start managing their medications.
-        </EmptyDescription>
-      </EmptyHeader>
-      <EmptyContent>
-        <Button>Request Access</Button>
-      </EmptyContent>
-    </Empty>
+    <>
+      <Empty className="min-h-[400px]">
+        <EmptyHeader>
+          <EmptyMedia variant="icon">
+            <UserPlus />
+          </EmptyMedia>
+          <EmptyTitle>No Care Recipients</EmptyTitle>
+          <EmptyDescription>
+            Request access to a care recipient or wait for an invitation to start managing their medications.
+          </EmptyDescription>
+        </EmptyHeader>
+        <EmptyContent>
+          <Button onClick={() => setDialogOpen(true)}>
+            <UserPlus className="mr-2 size-4" />
+            Request Access
+          </Button>
+        </EmptyContent>
+      </Empty>
+
+      <RequestAccessDialog open={dialogOpen} onOpenChange={setDialogOpen} />
+    </>
   )
 }

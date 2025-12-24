@@ -1,5 +1,4 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { toast } from 'sonner'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -7,53 +6,37 @@ import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Check, X, Mail, UserPlus, Users, Clock, Shield, User, Heart } from 'lucide-react'
+import { Check, X, Mail, UserPlus, Users, Clock, Shield, User, Heart, Loader2 } from 'lucide-react'
 import { Switch } from '@/components/ui/switch'
 import { ConfirmDialog } from '~/components/confirm-dialog'
 import { TimezoneCombobox } from '~/components/timezone-combobox'
 import { useUserRole } from '~/contexts/user-role-context'
+import { useOnboarding } from '~/contexts/onboarding-context'
+import {
+  useProfile,
+  useUpdateProfile,
+  useCaregivers,
+  useInviteCaregiver,
+  useApproveCaregiver,
+  useRevokeCaregiver,
+  useCareRecipients,
+  useRequestAccess,
+  useAcceptInvite,
+  useCancelAccess,
+} from '~/lib/api-hooks'
 import * as React from 'react'
 
 export const Route = createFileRoute('/_authed/settings')({
   component: SettingsPage,
 })
 
-// Mock data for the settings page
-const MOCK_MY_CAREGIVERS = [
-  {
-    id: 'access-1',
-    status: 'approved' as const,
-    caregiverDisplayName: 'Alice Johnson',
-    caregiverEmail: 'alice@example.com',
-    approvedAt: new Date('2024-06-01'),
-  },
-  {
-    id: 'access-2',
-    status: 'pending_request' as const,
-    caregiverDisplayName: 'Bob Smith',
-    caregiverEmail: 'bob@example.com',
-    requestedAt: new Date('2024-06-15'),
-  },
-]
-
-const MOCK_PEOPLE_I_CARE_FOR = [
-  {
-    id: 'access-3',
-    status: 'approved' as const,
-    recipientDisplayName: 'Grandma Margaret',
-    recipientEmail: 'margaret@example.com',
-    approvedAt: new Date('2024-05-15'),
-  },
-  {
-    id: 'access-4',
-    status: 'pending_invite' as const,
-    recipientDisplayName: 'Uncle John',
-    recipientEmail: 'john@example.com',
-    requestedAt: new Date('2024-06-14'),
-  },
-]
-
 function SettingsPage() {
+  const { isRecipient, isCaregiver } = useUserRole()
+
+  // Calculate grid columns based on visible tabs
+  const tabCount = 1 + (isRecipient ? 1 : 0) + (isCaregiver ? 1 : 0)
+  const gridClass = tabCount === 1 ? 'grid-cols-1' : tabCount === 2 ? 'grid-cols-2' : 'grid-cols-3'
+
   return (
     <div className="space-y-6 pb-20 md:pb-0">
       <div>
@@ -62,44 +45,90 @@ function SettingsPage() {
       </div>
 
       <Tabs defaultValue="my-profile" className="w-full">
-        <TabsList className="grid w-full max-w-xl grid-cols-3">
+        <TabsList className={`grid w-full max-w-xl ${gridClass}`}>
           <TabsTrigger value="my-profile" className="gap-2">
             <User className="size-4" />
             <span className="hidden sm:inline">My Profile</span>
             <span className="sm:hidden">Profile</span>
           </TabsTrigger>
-          <TabsTrigger value="my-caregivers" className="gap-2">
-            <Shield className="size-4" />
-            <span className="hidden sm:inline">My Caregivers</span>
-            <span className="sm:hidden">Caregivers</span>
-          </TabsTrigger>
-          <TabsTrigger value="people-i-care-for" className="gap-2">
-            <Users className="size-4" />
-            <span className="hidden sm:inline">People I Care For</span>
-            <span className="sm:hidden">Care For</span>
-          </TabsTrigger>
+          {isRecipient && (
+            <TabsTrigger value="my-caregivers" className="gap-2">
+              <Shield className="size-4" />
+              <span className="hidden sm:inline">My Caregivers</span>
+              <span className="sm:hidden">Caregivers</span>
+            </TabsTrigger>
+          )}
+          {isCaregiver && (
+            <TabsTrigger value="people-i-care-for" className="gap-2">
+              <Users className="size-4" />
+              <span className="hidden sm:inline">People I Care For</span>
+              <span className="sm:hidden">Care For</span>
+            </TabsTrigger>
+          )}
         </TabsList>
 
         <TabsContent value="my-profile" className="mt-6">
           <MyProfileTab />
         </TabsContent>
 
-        <TabsContent value="my-caregivers" className="mt-6">
-          <MyCaregiversTab />
-        </TabsContent>
+        {isRecipient && (
+          <TabsContent value="my-caregivers" className="mt-6">
+            <MyCaregiversTab />
+          </TabsContent>
+        )}
 
-        <TabsContent value="people-i-care-for" className="mt-6">
-          <PeopleICareForTab />
-        </TabsContent>
+        {isCaregiver && (
+          <TabsContent value="people-i-care-for" className="mt-6">
+            <PeopleICareForTab />
+          </TabsContent>
+        )}
       </Tabs>
     </div>
   )
 }
 
 function MyProfileTab() {
-  const [displayName, setDisplayName] = React.useState('Ted Werbel')
-  const [timezone, setTimezone] = React.useState('America/New_York')
+  const { data: profile, isLoading: profileLoading } = useProfile()
+  const { status: onboardingStatus } = useOnboarding()
+  const updateProfile = useUpdateProfile()
   const { isRecipient, isCaregiver, setIsRecipient, setIsCaregiver } = useUserRole()
+
+  const [displayName, setDisplayName] = React.useState('')
+  const [timezone, setTimezone] = React.useState('America/New_York')
+  const [hasChanges, setHasChanges] = React.useState(false)
+
+  // Initialize form with profile data
+  React.useEffect(() => {
+    if (profile) {
+      setDisplayName(profile.displayName)
+      setTimezone(profile.timezone)
+    } else if (onboardingStatus) {
+      // Fallback to onboarding data if profile not loaded yet
+      setDisplayName(onboardingStatus.displayName ?? '')
+      setTimezone(onboardingStatus.timezone ?? 'America/New_York')
+    }
+  }, [profile, onboardingStatus])
+
+  // Track changes
+  React.useEffect(() => {
+    if (profile) {
+      const changed = displayName !== profile.displayName || timezone !== profile.timezone
+      setHasChanges(changed)
+    }
+  }, [displayName, timezone, profile])
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    updateProfile.mutate({ displayName, timezone })
+  }
+
+  if (profileLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="size-6 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -119,15 +148,7 @@ function MyProfileTab() {
           <CardDescription>Update your display name and timezone preferences</CardDescription>
         </CardHeader>
         <CardContent>
-          <form
-            className="space-y-6"
-            onSubmit={(e) => {
-              e.preventDefault()
-              toast.success('Profile saved', {
-                description: 'Your profile has been updated successfully.',
-              })
-            }}
-          >
+          <form className="space-y-6" onSubmit={handleSubmit}>
             <div className="space-y-2">
               <Label htmlFor="display-name">Display Name</Label>
               <Input
@@ -150,8 +171,18 @@ function MyProfileTab() {
               </p>
             </div>
 
-            <Button type="submit" disabled={!displayName.trim()}>
-              Save Changes
+            <Button
+              type="submit"
+              disabled={!displayName.trim() || !hasChanges || updateProfile.isPending}
+            >
+              {updateProfile.isPending ? (
+                <>
+                  <Loader2 className="mr-2 size-4 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                'Save Changes'
+              )}
             </Button>
           </form>
         </CardContent>
@@ -219,34 +250,37 @@ type ConfirmAction = {
 }
 
 function MyCaregiversTab() {
+  const { data: caregivers = [], isLoading } = useCaregivers()
+  const inviteCaregiver = useInviteCaregiver()
+  const approveCaregiver = useApproveCaregiver()
+  const revokeCaregiver = useRevokeCaregiver()
+
   const [inviteEmail, setInviteEmail] = React.useState('')
   const [confirmAction, setConfirmAction] = React.useState<ConfirmAction | null>(null)
 
-  const approvedCaregivers = MOCK_MY_CAREGIVERS.filter((c) => c.status === 'approved')
-  const pendingRequests = MOCK_MY_CAREGIVERS.filter((c) => c.status === 'pending_request')
+  const approvedCaregivers = caregivers.filter((c) => c.status === 'approved')
+  const pendingRequests = caregivers.filter((c) => c.status === 'pending_request')
 
   const handleConfirm = () => {
     if (!confirmAction) return
-    console.log(`${confirmAction.type} action confirmed for ${confirmAction.name}`)
 
     switch (confirmAction.type) {
       case 'approve':
-        toast.success('Caregiver approved', {
-          description: `${confirmAction.name} can now manage your medications.`,
-        })
+        approveCaregiver.mutate(confirmAction.id)
         break
       case 'deny':
-        toast.success('Request denied', {
-          description: `${confirmAction.name}'s request has been denied.`,
-        })
-        break
       case 'revoke':
-        toast.success('Access revoked', {
-          description: `${confirmAction.name} no longer has access to your medications.`,
-        })
+        revokeCaregiver.mutate(confirmAction.id)
         break
     }
     setConfirmAction(null)
+  }
+
+  const handleInvite = (e: React.FormEvent) => {
+    e.preventDefault()
+    inviteCaregiver.mutate(inviteEmail, {
+      onSuccess: () => setInviteEmail(''),
+    })
   }
 
   const getDialogConfig = () => {
@@ -278,6 +312,14 @@ function MyCaregiversTab() {
   }
 
   const dialogConfig = getDialogConfig()
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="size-6 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -314,7 +356,7 @@ function MyCaregiversTab() {
                     </AvatarFallback>
                   </Avatar>
                   <div>
-                    <p className="font-medium">{request.caregiverDisplayName}</p>
+                    <p className="font-medium">{request.caregiverDisplayName || 'Unknown'}</p>
                     <p className="text-sm text-muted-foreground">{request.caregiverEmail}</p>
                   </div>
                 </div>
@@ -322,7 +364,7 @@ function MyCaregiversTab() {
                   <Button
                     size="sm"
                     className="bg-green-600 hover:bg-green-700"
-                    onClick={() => setConfirmAction({ type: 'approve', id: request.id, name: request.caregiverDisplayName })}
+                    onClick={() => setConfirmAction({ type: 'approve', id: request.id, name: request.caregiverDisplayName || 'this caregiver' })}
                   >
                     <Check className="mr-1.5 size-4" />
                     Approve
@@ -331,7 +373,7 @@ function MyCaregiversTab() {
                     size="sm"
                     variant="outline"
                     className="text-destructive hover:bg-destructive/10"
-                    onClick={() => setConfirmAction({ type: 'deny', id: request.id, name: request.caregiverDisplayName })}
+                    onClick={() => setConfirmAction({ type: 'deny', id: request.id, name: request.caregiverDisplayName || 'this caregiver' })}
                   >
                     <X className="mr-1.5 size-4" />
                     Deny
@@ -376,7 +418,7 @@ function MyCaregiversTab() {
                       <AvatarFallback>{caregiver.caregiverDisplayName?.charAt(0) || '?'}</AvatarFallback>
                     </Avatar>
                     <div>
-                      <p className="font-medium">{caregiver.caregiverDisplayName}</p>
+                      <p className="font-medium">{caregiver.caregiverDisplayName || 'Unknown'}</p>
                       <p className="text-sm text-muted-foreground">{caregiver.caregiverEmail}</p>
                     </div>
                   </div>
@@ -384,7 +426,7 @@ function MyCaregiversTab() {
                     variant="outline"
                     size="sm"
                     className="self-end text-destructive hover:text-destructive sm:self-auto"
-                    onClick={() => setConfirmAction({ type: 'revoke', id: caregiver.id, name: caregiver.caregiverDisplayName })}
+                    onClick={() => setConfirmAction({ type: 'revoke', id: caregiver.id, name: caregiver.caregiverDisplayName || 'this caregiver' })}
                   >
                     Revoke Access
                   </Button>
@@ -405,16 +447,7 @@ function MyCaregiversTab() {
           <CardDescription>Send an invitation to someone to help manage your care</CardDescription>
         </CardHeader>
         <CardContent>
-          <form
-            className="flex flex-col gap-4 sm:flex-row sm:items-end"
-            onSubmit={(e) => {
-              e.preventDefault()
-              toast.success('Invitation sent', {
-                description: `An invitation has been sent to ${inviteEmail}.`,
-              })
-              setInviteEmail('')
-            }}
-          >
+          <form className="flex flex-col gap-4 sm:flex-row sm:items-end" onSubmit={handleInvite}>
             <div className="flex-1 space-y-2">
               <Label htmlFor="invite-email">Email address</Label>
               <Input
@@ -425,8 +458,16 @@ function MyCaregiversTab() {
                 onChange={(e) => setInviteEmail(e.target.value)}
               />
             </div>
-            <Button type="submit" disabled={!inviteEmail} className="sm:w-auto">
-              <Mail className="mr-2 size-4" />
+            <Button
+              type="submit"
+              disabled={!inviteEmail || inviteCaregiver.isPending}
+              className="sm:w-auto"
+            >
+              {inviteCaregiver.isPending ? (
+                <Loader2 className="mr-2 size-4 animate-spin" />
+              ) : (
+                <Mail className="mr-2 size-4" />
+              )}
               Send Invitation
             </Button>
           </form>
@@ -456,34 +497,37 @@ type RecipientConfirmAction = {
 }
 
 function PeopleICareForTab() {
+  const { data: recipients = [], isLoading } = useCareRecipients()
+  const requestAccess = useRequestAccess()
+  const acceptInvite = useAcceptInvite()
+  const cancelAccess = useCancelAccess()
+
   const [requestEmail, setRequestEmail] = React.useState('')
   const [confirmAction, setConfirmAction] = React.useState<RecipientConfirmAction | null>(null)
 
-  const approvedRecipients = MOCK_PEOPLE_I_CARE_FOR.filter((r) => r.status === 'approved')
-  const pendingInvites = MOCK_PEOPLE_I_CARE_FOR.filter((r) => r.status === 'pending_invite')
+  const approvedRecipients = recipients.filter((r) => r.status === 'approved')
+  const pendingInvites = recipients.filter((r) => r.status === 'pending_invite')
 
   const handleConfirm = () => {
     if (!confirmAction) return
-    console.log(`${confirmAction.type} action confirmed for ${confirmAction.name}`)
 
     switch (confirmAction.type) {
       case 'accept':
-        toast.success('Invitation accepted', {
-          description: `You are now a caregiver for ${confirmAction.name}.`,
-        })
+        acceptInvite.mutate(confirmAction.id)
         break
       case 'decline':
-        toast.success('Invitation declined', {
-          description: `You declined the invitation from ${confirmAction.name}.`,
-        })
-        break
       case 'leave':
-        toast.success('Left as caregiver', {
-          description: `You are no longer a caregiver for ${confirmAction.name}.`,
-        })
+        cancelAccess.mutate(confirmAction.id)
         break
     }
     setConfirmAction(null)
+  }
+
+  const handleRequest = (e: React.FormEvent) => {
+    e.preventDefault()
+    requestAccess.mutate(requestEmail, {
+      onSuccess: () => setRequestEmail(''),
+    })
   }
 
   const getDialogConfig = () => {
@@ -515,6 +559,14 @@ function PeopleICareForTab() {
   }
 
   const dialogConfig = getDialogConfig()
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="size-6 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -551,7 +603,7 @@ function PeopleICareForTab() {
                     </AvatarFallback>
                   </Avatar>
                   <div>
-                    <p className="font-medium">{invite.recipientDisplayName}</p>
+                    <p className="font-medium">{invite.recipientDisplayName || 'Unknown'}</p>
                     <p className="text-sm text-muted-foreground">{invite.recipientEmail}</p>
                   </div>
                 </div>
@@ -559,7 +611,7 @@ function PeopleICareForTab() {
                   <Button
                     size="sm"
                     className="bg-green-600 hover:bg-green-700"
-                    onClick={() => setConfirmAction({ type: 'accept', id: invite.id, name: invite.recipientDisplayName })}
+                    onClick={() => setConfirmAction({ type: 'accept', id: invite.id, name: invite.recipientDisplayName || 'this person' })}
                   >
                     <Check className="mr-1.5 size-4" />
                     Accept
@@ -568,7 +620,7 @@ function PeopleICareForTab() {
                     size="sm"
                     variant="outline"
                     className="text-destructive hover:bg-destructive/10"
-                    onClick={() => setConfirmAction({ type: 'decline', id: invite.id, name: invite.recipientDisplayName })}
+                    onClick={() => setConfirmAction({ type: 'decline', id: invite.id, name: invite.recipientDisplayName || 'this person' })}
                   >
                     <X className="mr-1.5 size-4" />
                     Decline
@@ -613,7 +665,7 @@ function PeopleICareForTab() {
                       <AvatarFallback>{recipient.recipientDisplayName?.charAt(0) || '?'}</AvatarFallback>
                     </Avatar>
                     <div>
-                      <p className="font-medium">{recipient.recipientDisplayName}</p>
+                      <p className="font-medium">{recipient.recipientDisplayName || 'Unknown'}</p>
                       <p className="text-sm text-muted-foreground">{recipient.recipientEmail}</p>
                     </div>
                   </div>
@@ -621,7 +673,7 @@ function PeopleICareForTab() {
                     variant="outline"
                     size="sm"
                     className="self-end text-destructive hover:text-destructive sm:self-auto"
-                    onClick={() => setConfirmAction({ type: 'leave', id: recipient.id, name: recipient.recipientDisplayName })}
+                    onClick={() => setConfirmAction({ type: 'leave', id: recipient.id, name: recipient.recipientDisplayName || 'this person' })}
                   >
                     Leave
                   </Button>
@@ -642,16 +694,7 @@ function PeopleICareForTab() {
           <CardDescription>Request to become a caregiver for someone</CardDescription>
         </CardHeader>
         <CardContent>
-          <form
-            className="flex flex-col gap-4 sm:flex-row sm:items-end"
-            onSubmit={(e) => {
-              e.preventDefault()
-              toast.success('Request sent', {
-                description: `A request has been sent to ${requestEmail}.`,
-              })
-              setRequestEmail('')
-            }}
-          >
+          <form className="flex flex-col gap-4 sm:flex-row sm:items-end" onSubmit={handleRequest}>
             <div className="flex-1 space-y-2">
               <Label htmlFor="request-email">Care recipient's email</Label>
               <Input
@@ -662,8 +705,16 @@ function PeopleICareForTab() {
                 onChange={(e) => setRequestEmail(e.target.value)}
               />
             </div>
-            <Button type="submit" disabled={!requestEmail} className="sm:w-auto">
-              <UserPlus className="mr-2 size-4" />
+            <Button
+              type="submit"
+              disabled={!requestEmail || requestAccess.isPending}
+              className="sm:w-auto"
+            >
+              {requestAccess.isPending ? (
+                <Loader2 className="mr-2 size-4 animate-spin" />
+              ) : (
+                <UserPlus className="mr-2 size-4" />
+              )}
               Request Access
             </Button>
           </form>

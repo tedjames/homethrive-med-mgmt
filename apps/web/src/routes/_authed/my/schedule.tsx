@@ -1,10 +1,27 @@
 import * as React from 'react'
 import { createFileRoute } from '@tanstack/react-router'
-import { ArrowUp } from 'lucide-react'
-import { getScheduleForDays, type DaySchedule } from '~/lib/mock-data'
+import { ArrowUp, Loader2, Pill, Plus } from 'lucide-react'
+import {
+  useProfile,
+  useDaysSchedule,
+  useMarkDoseTaken,
+  useUnmarkDoseTaken,
+  useMedicationsWithSchedules,
+  useCreateMedication,
+  type DaySchedule,
+} from '~/lib/api-hooks'
 import { Button } from '@/components/ui/button'
 import { BlurFade } from '@/components/ui/blur-fade'
 import { ScheduleFeed } from '~/components/schedule-feed'
+import { AddMedicationSheet, type MedicationFormData } from '~/components/add-medication-sheet'
+import {
+  Empty,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+  EmptyDescription,
+  EmptyContent,
+} from '@/components/ui/empty'
 
 export const Route = createFileRoute('/_authed/my/schedule')({
   component: MySchedule,
@@ -13,60 +30,101 @@ export const Route = createFileRoute('/_authed/my/schedule')({
 const INITIAL_DAYS = 7
 const LOAD_MORE_DAYS = 7
 
-// Mock user ID for personal schedule (will be replaced with actual user ID from Clerk)
-const MY_RECIPIENT_ID = 'self'
-
 function MySchedule() {
-  const [days, setDays] = React.useState<DaySchedule[]>([])
-  const [isLoading, setIsLoading] = React.useState(false)
-  const [daysLoaded, setDaysLoaded] = React.useState(0)
+  const { data: profile, isLoading: profileLoading } = useProfile()
+  const [daysToLoad, setDaysToLoad] = React.useState(INITIAL_DAYS)
   const [showScrollTop, setShowScrollTop] = React.useState(false)
+  const [localDays, setLocalDays] = React.useState<DaySchedule[]>([])
+  const [addSheetOpen, setAddSheetOpen] = React.useState(false)
   const loadMoreRef = React.useRef<HTMLDivElement>(null)
 
-  // Load initial days
+  const myRecipientId = profile?.id
+
+  const { data: medications = [], isLoading: medicationsLoading } = useMedicationsWithSchedules(
+    myRecipientId
+  )
+  // Use the recipient's timezone for proper date grouping (per ADR-005)
+  const timezone = profile?.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone
+
+  const { days: apiDays, isLoading: dosesLoading } = useDaysSchedule(
+    myRecipientId,
+    timezone,
+    daysToLoad
+  )
+  const markDoseTaken = useMarkDoseTaken()
+  const unmarkDoseTaken = useUnmarkDoseTaken()
+  const createMedication = useCreateMedication()
+
+  const handleAddMedication = (data: MedicationFormData) => {
+    if (!myRecipientId) return
+
+    createMedication.mutate(
+      {
+        recipientId: myRecipientId,
+        name: data.name,
+        instructions: data.instructions || null,
+        schedules: data.schedules.map((s) => ({
+          recurrence: s.recurrence,
+          timeOfDay: s.timeOfDay,
+          daysOfWeek: s.recurrence === 'weekly' ? s.daysOfWeek : null,
+          startDate: s.startDate,
+        })),
+      },
+      {
+        onSuccess: () => setAddSheetOpen(false),
+      }
+    )
+  }
+
+  // Sync API data to local state for optimistic updates
+  // Only sync when not loading to prevent clearing data during "load more"
   React.useEffect(() => {
-    const today = new Date()
-    const initialDays = getScheduleForDays(MY_RECIPIENT_ID, today, INITIAL_DAYS)
-    setDays(initialDays)
-    setDaysLoaded(INITIAL_DAYS)
-  }, [])
+    if (!dosesLoading) {
+      setLocalDays(apiDays)
+    }
+  }, [apiDays, dosesLoading])
 
   // Load more days
   const loadMoreDays = React.useCallback(() => {
-    if (isLoading) return
+    if (dosesLoading) return
+    setDaysToLoad((prev) => prev + LOAD_MORE_DAYS)
+  }, [dosesLoading])
 
-    setIsLoading(true)
-
-    // Simulate API delay
-    setTimeout(() => {
-      const today = new Date()
-      const startDate = new Date(today)
-      startDate.setDate(today.getDate() + daysLoaded)
-
-      const moreDays = getScheduleForDays(MY_RECIPIENT_ID, startDate, LOAD_MORE_DAYS)
-      setDays((prev) => [...prev, ...moreDays])
-      setDaysLoaded((prev) => prev + LOAD_MORE_DAYS)
-      setIsLoading(false)
-    }, 1000)
-  }, [isLoading, daysLoaded])
+  // Track if we should load more when loading finishes (for cases where user scrolled while loading)
+  const shouldLoadMoreRef = React.useRef(false)
 
   // Intersection Observer for infinite scroll
   React.useEffect(() => {
+    const currentRef = loadMoreRef.current
+    if (!currentRef) return
+
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting && !isLoading && daysLoaded > 0) {
-          loadMoreDays()
+        const isIntersecting = entries[0]?.isIntersecting ?? false
+
+        if (isIntersecting && localDays.length > 0) {
+          if (dosesLoading) {
+            // Mark that we should load more when loading finishes
+            shouldLoadMoreRef.current = true
+          } else {
+            loadMoreDays()
+          }
         }
       },
-      { threshold: 0.1 }
+      { threshold: 0.1, rootMargin: '100px' }
     )
 
-    if (loadMoreRef.current) {
-      observer.observe(loadMoreRef.current)
-    }
-
+    observer.observe(currentRef)
     return () => observer.disconnect()
-  }, [loadMoreDays, isLoading, daysLoaded])
+  }, [loadMoreDays, dosesLoading, localDays.length])
+
+  // Handle deferred load more (when user scrolled while loading)
+  React.useEffect(() => {
+    if (!dosesLoading && shouldLoadMoreRef.current) {
+      shouldLoadMoreRef.current = false
+      loadMoreDays()
+    }
+  }, [dosesLoading, loadMoreDays])
 
   // Scroll to top button visibility
   React.useEffect(() => {
@@ -82,9 +140,12 @@ function MySchedule() {
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
-  // Handle marking a dose as taken/untaken
+  // Handle marking a dose as taken/untaken with optimistic update
   const handleToggleDose = (doseId: string, isTaken: boolean) => {
-    setDays((prev) =>
+    if (!myRecipientId) return
+
+    // Optimistic update
+    setLocalDays((prev) =>
       prev.map((day) => ({
         ...day,
         morning: day.morning.map((dose) =>
@@ -104,6 +165,60 @@ function MySchedule() {
         ),
       }))
     )
+
+    // Call API
+    if (isTaken) {
+      markDoseTaken.mutate({ doseId, recipientId: myRecipientId })
+    } else {
+      unmarkDoseTaken.mutate({ doseId, recipientId: myRecipientId })
+    }
+  }
+
+  if (profileLoading || medicationsLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="size-6 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
+
+  // Show empty state if no medications exist
+  if (medications.length === 0) {
+    return (
+      <div className="space-y-6 pb-20 md:pb-0">
+        <div>
+          <h1 className="font-['Gambarino'] text-4xl">My Schedule</h1>
+          <p className="text-sm text-muted-foreground">
+            Your upcoming medication schedule
+          </p>
+        </div>
+
+        <Empty className="min-h-[300px] border">
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <Pill />
+            </EmptyMedia>
+            <EmptyTitle>No medications yet</EmptyTitle>
+            <EmptyDescription>
+              Add your first medication to see your schedule.
+            </EmptyDescription>
+          </EmptyHeader>
+          <EmptyContent>
+            <Button onClick={() => setAddSheetOpen(true)}>
+              <Plus className="mr-2 size-4" />
+              Add Medication
+            </Button>
+          </EmptyContent>
+        </Empty>
+
+        <AddMedicationSheet
+          open={addSheetOpen}
+          onOpenChange={setAddSheetOpen}
+          onSubmit={handleAddMedication}
+          isLoading={createMedication.isPending}
+        />
+      </div>
+    )
   }
 
   return (
@@ -115,10 +230,14 @@ function MySchedule() {
         </p>
       </div>
 
-      <ScheduleFeed days={days} onToggle={handleToggleDose} isLoading={isLoading} />
-
-      {/* Intersection observer trigger */}
-      <div ref={loadMoreRef} className="h-4" />
+      <ScheduleFeed
+        days={localDays}
+        timezone={timezone}
+        onToggle={handleToggleDose}
+        isLoading={dosesLoading}
+        onLoadMore={loadMoreDays}
+        loadMoreRef={loadMoreRef}
+      />
 
       {/* Scroll to top button */}
       {showScrollTop && (

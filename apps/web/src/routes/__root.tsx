@@ -1,5 +1,6 @@
 /// <reference types="vite/client" />
 import { ClerkProvider } from '@clerk/clerk-react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import * as React from 'react'
 import {
   HeadContent,
@@ -57,6 +58,15 @@ export const Route = createRootRoute({
   component: RootComponent,
 })
 
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 1000 * 60, // 1 minute
+      retry: 1,
+    },
+  },
+})
+
 function RootComponent() {
   const clerkPubKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY
 
@@ -66,9 +76,11 @@ function RootComponent() {
 
   return (
     <ClerkProvider publishableKey={clerkPubKey}>
-      <RootDocument>
-        <Outlet />
-      </RootDocument>
+      <QueryClientProvider client={queryClient}>
+        <RootDocument>
+          <Outlet />
+        </RootDocument>
+      </QueryClientProvider>
     </ClerkProvider>
   )
 }

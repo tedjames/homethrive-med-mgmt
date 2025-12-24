@@ -1,5 +1,6 @@
 import * as React from 'react'
 import { useOnboarding } from './onboarding-context'
+import { useUpdateRoles } from '~/lib/api-hooks'
 
 type UserRoles = {
   isRecipient: boolean
@@ -9,24 +10,69 @@ type UserRoles = {
 type UserRoleContextType = UserRoles & {
   setIsRecipient: (value: boolean) => void
   setIsCaregiver: (value: boolean) => void
+  isSaving: boolean
 }
 
 const UserRoleContext = React.createContext<UserRoleContextType | null>(null)
 
 export function UserRoleProvider({ children }: { children: React.ReactNode }) {
-  const { status } = useOnboarding()
+  const { status, refetch } = useOnboarding()
+  const updateRoles = useUpdateRoles()
 
   // Initialize from onboarding status
-  const [isRecipient, setIsRecipient] = React.useState(status?.isRecipient ?? false)
-  const [isCaregiver, setIsCaregiver] = React.useState(status?.isCaregiver ?? false)
+  const [isRecipient, setIsRecipientLocal] = React.useState(status?.isRecipient ?? false)
+  const [isCaregiver, setIsCaregiverLocal] = React.useState(status?.isCaregiver ?? false)
 
-  // Update when status changes
+  // Update when status changes (e.g., initial load or after refetch)
   React.useEffect(() => {
     if (status) {
-      setIsRecipient(status.isRecipient)
-      setIsCaregiver(status.isCaregiver)
+      setIsRecipientLocal(status.isRecipient)
+      setIsCaregiverLocal(status.isCaregiver)
     }
   }, [status])
+
+  // Persist role changes to API
+  const setIsRecipient = React.useCallback(
+    (value: boolean) => {
+      // Optimistic update
+      setIsRecipientLocal(value)
+      // Persist to API
+      updateRoles.mutate(
+        { isRecipient: value, isCaregiver },
+        {
+          onSuccess: () => {
+            refetch()
+          },
+          onError: () => {
+            // Revert on error
+            setIsRecipientLocal(!value)
+          },
+        }
+      )
+    },
+    [isCaregiver, updateRoles, refetch]
+  )
+
+  const setIsCaregiver = React.useCallback(
+    (value: boolean) => {
+      // Optimistic update
+      setIsCaregiverLocal(value)
+      // Persist to API
+      updateRoles.mutate(
+        { isRecipient, isCaregiver: value },
+        {
+          onSuccess: () => {
+            refetch()
+          },
+          onError: () => {
+            // Revert on error
+            setIsCaregiverLocal(!value)
+          },
+        }
+      )
+    },
+    [isRecipient, updateRoles, refetch]
+  )
 
   const value = React.useMemo(
     () => ({
@@ -34,8 +80,9 @@ export function UserRoleProvider({ children }: { children: React.ReactNode }) {
       isCaregiver,
       setIsRecipient,
       setIsCaregiver,
+      isSaving: updateRoles.isPending,
     }),
-    [isRecipient, isCaregiver]
+    [isRecipient, isCaregiver, setIsRecipient, setIsCaregiver, updateRoles.isPending]
   )
 
   return (

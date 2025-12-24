@@ -1,4 +1,4 @@
-import { type MockDose, getTimePeriod } from '~/lib/mock-data'
+import { type Dose, getTimePeriod } from '~/lib/api-hooks'
 import { DoseCard } from './dose-card'
 import {
   Empty,
@@ -10,7 +10,7 @@ import {
 import { Pill } from 'lucide-react'
 
 type DoseListProps = {
-  doses: MockDose[]
+  doses: Dose[]
   onToggle: (doseId: string, isTaken: boolean) => void
 }
 
@@ -30,7 +30,7 @@ export function DoseList({ doses, onToggle }: DoseListProps) {
   }
 
   // Group doses by time period
-  const groupedDoses = doses.reduce<Record<TimePeriod, MockDose[]>>(
+  const groupedDoses = doses.reduce<Record<TimePeriod, Dose[]>>(
     (acc, dose) => {
       const period = getTimePeriod(dose.timeOfDay)
       if (!acc[period]) {

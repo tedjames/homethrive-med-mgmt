@@ -9,6 +9,7 @@ export type ScheduleFormData = {
   daysOfWeek: number[]
   timeOfDay: string
   startDate: string
+  dosageNotes: string
 }
 
 type ScheduleBuilderProps = {
@@ -54,6 +55,13 @@ export function ScheduleBuilder({ value, onChange }: ScheduleBuilderProps) {
     onChange({
       ...value,
       startDate: e.target.value,
+    })
+  }
+
+  const handleDosageNotesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    onChange({
+      ...value,
+      dosageNotes: e.target.value,
     })
   }
 
@@ -124,6 +132,18 @@ export function ScheduleBuilder({ value, onChange }: ScheduleBuilderProps) {
           />
         </div>
       </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="dosageNotes">Dosage</Label>
+        <Input
+          id="dosageNotes"
+          type="text"
+          placeholder="e.g., 2 pills, 500mg"
+          value={value.dosageNotes}
+          onChange={handleDosageNotesChange}
+          maxLength={255}
+        />
+      </div>
     </div>
   )
 }
@@ -135,5 +155,6 @@ export function createDefaultSchedule(): ScheduleFormData {
     daysOfWeek: [],
     timeOfDay: '08:00',
     startDate: today,
+    dosageNotes: '',
   }
 }

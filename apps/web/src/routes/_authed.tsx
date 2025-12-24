@@ -23,7 +23,6 @@ import {
   SidebarGroup,
   SidebarGroupLabel,
 } from '@/components/ui/sidebar'
-import { Separator } from '@/components/ui/separator'
 
 export const Route = createFileRoute('/_authed')({
   component: AuthedLayout,
@@ -154,7 +153,7 @@ function AppSidebar() {
     <Sidebar>
       <SidebarHeader className="border-b p-4">
         <div className="flex justify-start">
-          <HomethriveLogo className="h-5 text-foreground" />
+          <HomethriveLogo className="h-4 text-foreground" />
         </div>
       </SidebarHeader>
       <SidebarContent className="p-2">
@@ -181,7 +180,6 @@ function AppSidebar() {
                 ))}
               </SidebarMenu>
             </SidebarGroup>
-            {isRecipient && <Separator className="my-3" />}
           </>
         )}
 
@@ -189,7 +187,7 @@ function AppSidebar() {
         {isRecipient && (
           <SidebarGroup className="p-0">
             <SidebarGroupLabel className="px-2 text-xs">
-              Care Guide
+              My Care Guide
             </SidebarGroupLabel>
             <SidebarMenu>
               {myNavItems.map((item) => (
@@ -205,9 +203,8 @@ function AppSidebar() {
             </SidebarMenu>
           </SidebarGroup>
         )}
-
-        <Separator className="my-3" />
-
+      </SidebarContent>
+      <SidebarFooter className="p-2">
         {/* Settings */}
         <SidebarMenu>
           <SidebarMenuItem>
@@ -219,10 +216,10 @@ function AppSidebar() {
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
-      </SidebarContent>
-      <SidebarFooter className="border-t p-4">
-        <div className="text-xs text-muted-foreground">Medication Manager</div>
-        <div className="text-xs text-muted-foreground">Copyright &copy; 2025 Homethrive, Inc.</div>
+        <div className="border-t px-2 pt-2 mt-2">
+          <div className="text-xs text-muted-foreground">Medication Manager</div>
+          <div className="text-xs text-muted-foreground">Copyright &copy; 2025 Homethrive, Inc.</div>
+        </div>
       </SidebarFooter>
     </Sidebar>
   )
