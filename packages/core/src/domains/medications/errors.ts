@@ -25,6 +25,17 @@ export class InactiveMedicationError extends ConflictError {
   }
 }
 
+export class MedicationNotInactiveError extends ConflictError {
+  constructor(medicationId: string) {
+    super(
+      `Cannot delete active medication ${medicationId}. Deactivate it first.`,
+      'MEDICATION_NOT_INACTIVE',
+      { medicationId }
+    );
+    this.name = 'MedicationNotInactiveError';
+  }
+}
+
 export function isMedicationNotFound(err: unknown): err is MedicationNotFoundError {
   return err instanceof MedicationNotFoundError;
 }
@@ -35,4 +46,8 @@ export function isMedicationRequiresSchedule(err: unknown): err is MedicationReq
 
 export function isInactiveMedication(err: unknown): err is InactiveMedicationError {
   return err instanceof InactiveMedicationError;
+}
+
+export function isMedicationNotInactive(err: unknown): err is MedicationNotInactiveError {
+  return err instanceof MedicationNotInactiveError;
 }

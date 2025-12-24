@@ -23,6 +23,8 @@ function createScheduleRepoStub(
     listByMedication: vi.fn(async () => []),
     listByRecipient: vi.fn(async () => []),
     createMany: vi.fn(async () => []),
+    update: vi.fn(async () => null),
+    countActiveByMedication: vi.fn(async () => 0),
     ...overrides,
   };
 }
@@ -34,6 +36,7 @@ function createDoseTakenRepoStub(
     markTaken: vi.fn(async () => {
       throw new Error('not implemented');
     }),
+    unmarkTaken: vi.fn(async () => false),
     getTakenMap: vi.fn(async () => new Map()),
     ...overrides,
   };
@@ -51,6 +54,7 @@ function createMedicationRepoStub(
     update: vi.fn(async () => null),
     setInactive: vi.fn(async () => null),
     setActive: vi.fn(async () => null),
+    delete: vi.fn(async () => false),
     createWithSchedules: vi.fn(async () => {
       throw new Error('not implemented');
     }),
@@ -72,6 +76,7 @@ describe('createDoseService', () => {
       daysOfWeek: null,
       startDate: '2024-12-19',
       endDate: null,
+      dosageNotes: null,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -150,6 +155,7 @@ describe('createDoseService', () => {
       daysOfWeek: null,
       startDate: '2024-12-19',
       endDate: null,
+      dosageNotes: null,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -180,6 +186,7 @@ describe('createDoseService', () => {
       daysOfWeek: null,
       startDate: '2024-12-01',
       endDate: null,
+      dosageNotes: null,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -222,6 +229,7 @@ describe('createDoseService', () => {
       daysOfWeek: null,
       startDate: '2024-12-01',
       endDate: null,
+      dosageNotes: null,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -278,6 +286,7 @@ describe('createDoseService', () => {
       daysOfWeek: null,
       startDate: '2024-12-19',
       endDate: null,
+      dosageNotes: null,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -326,6 +335,7 @@ describe('createDoseService', () => {
       daysOfWeek: null,
       startDate: '2024-12-15',
       endDate: null,
+      dosageNotes: null,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -380,6 +390,7 @@ describe('createDoseService', () => {
       daysOfWeek: null,
       startDate: '2024-12-01',
       endDate: null,
+      dosageNotes: null,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -426,6 +437,7 @@ describe('createDoseService', () => {
       daysOfWeek: null,
       startDate: '2024-12-01',
       endDate: null,
+      dosageNotes: null,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -480,6 +492,7 @@ describe('createDoseService', () => {
       daysOfWeek: null,
       startDate: '2024-12-01',
       endDate: null,
+      dosageNotes: null,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -493,6 +506,7 @@ describe('createDoseService', () => {
       daysOfWeek: null,
       startDate: '2024-12-01',
       endDate: null,
+      dosageNotes: null,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -543,6 +557,7 @@ describe('createDoseService', () => {
       daysOfWeek: null,
       startDate: '2024-12-01',
       endDate: null,
+      dosageNotes: null,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -597,6 +612,7 @@ describe('createDoseService', () => {
       daysOfWeek: null,
       startDate: '2024-12-01',
       endDate: null,
+      dosageNotes: null,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -655,6 +671,7 @@ describe('createDoseService', () => {
       daysOfWeek: null,
       startDate: '2024-12-01',
       endDate: null,
+      dosageNotes: null,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -716,6 +733,7 @@ describe('createDoseService', () => {
       daysOfWeek: null,
       startDate: '2024-12-01',
       endDate: null,
+      dosageNotes: null,
       createdAt: new Date(),
       updatedAt: new Date(),
     };

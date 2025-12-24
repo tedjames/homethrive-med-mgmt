@@ -31,3 +31,38 @@ export class InvalidRecurrenceRuleError extends ValidationError {
 export function isScheduleNotFound(err: unknown): err is ScheduleNotFoundError {
   return err instanceof ScheduleNotFoundError;
 }
+
+/**
+ * Thrown when attempting to end the last active schedule for a medication.
+ * A medication must have at least one active schedule.
+ */
+export class LastScheduleEndError extends ValidationError {
+  constructor(medicationId: string) {
+    super(
+      `Cannot end the last active schedule for medication ${medicationId}. A medication must have at least one active schedule.`,
+      'LAST_SCHEDULE_END'
+    );
+    this.name = 'LastScheduleEndError';
+  }
+}
+
+/**
+ * Thrown when attempting to modify a schedule for an inactive medication.
+ */
+export class ScheduleInactiveMedicationError extends ValidationError {
+  constructor(scheduleId: string) {
+    super(
+      `Cannot modify schedule ${scheduleId} because its medication is inactive. Reactivate the medication first.`,
+      'SCHEDULE_INACTIVE_MEDICATION'
+    );
+    this.name = 'ScheduleInactiveMedicationError';
+  }
+}
+
+export function isLastScheduleEnd(err: unknown): err is LastScheduleEndError {
+  return err instanceof LastScheduleEndError;
+}
+
+export function isScheduleInactiveMedication(err: unknown): err is ScheduleInactiveMedicationError {
+  return err instanceof ScheduleInactiveMedicationError;
+}

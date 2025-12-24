@@ -15,6 +15,8 @@ function createRepoStub(overrides: Partial<ScheduleRepository> = {}): ScheduleRe
     listByMedication: vi.fn(async () => []),
     listByRecipient: vi.fn(async () => []),
     createMany: vi.fn(async () => []),
+    update: vi.fn(async () => null),
+    countActiveByMedication: vi.fn(async () => 0),
     ...overrides,
   };
 }
@@ -61,6 +63,7 @@ describe('createScheduleService', () => {
         daysOfWeek: null,
         startDate: '2024-12-01',
         endDate: null,
+        dosageNotes: null,
         createdAt: new Date(),
         updatedAt: new Date(),
       }]),

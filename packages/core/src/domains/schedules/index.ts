@@ -8,11 +8,12 @@ export type {
   MedicationSchedule,
   CreateScheduleInput,
   CreateScheduleForMedicationInput,
+  UpdateScheduleInput,
 } from './entity.js';
 
 // Validation schemas
-export { createScheduleInputSchema } from './schema.js';
-export type { CreateScheduleInputSchema } from './schema.js';
+export { createScheduleInputSchema, updateScheduleInputSchema } from './schema.js';
+export type { CreateScheduleInputSchema, UpdateScheduleInputSchema } from './schema.js';
 
 // Repository interface
 export type { ScheduleRepository } from './repository.js';
@@ -26,5 +27,9 @@ export {
   ScheduleNotFoundError,
   WeeklyScheduleMissingDaysError,
   InvalidRecurrenceRuleError,
+  LastScheduleEndError,
+  ScheduleInactiveMedicationError,
   isScheduleNotFound,
+  isLastScheduleEnd,
+  isScheduleInactiveMedication,
 } from './errors.js';

@@ -40,6 +40,19 @@ export interface DoseTakenRepository {
   markTaken(userId: UserId, input: MarkDoseTakenInput): Promise<DoseTaken>;
 
   /**
+   * Unmark a dose as taken (delete the taken record).
+   *
+   * Idempotent: if not marked taken, returns false (no error).
+   *
+   * @param userId - Passed for consistency; NOT used for authorization.
+   *                 Caller must verify user has access to the schedule.
+   * @param scheduleId - The schedule ID for the dose.
+   * @param scheduledFor - The scheduled time of the dose.
+   * @returns True if a record was deleted, false if no record existed.
+   */
+  unmarkTaken(userId: UserId, scheduleId: string, scheduledFor: Date): Promise<boolean>;
+
+  /**
    * Get all taken records for given schedules within a time window.
    *
    * Returns a Map keyed by "scheduleId|scheduledForISO" for fast lookup.

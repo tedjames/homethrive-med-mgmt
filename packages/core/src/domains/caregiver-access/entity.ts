@@ -69,6 +69,18 @@ export interface CaregiverAccessWithUser extends CaregiverAccess {
    * Email of the recipient user.
    */
   recipientEmail: string | null;
+  /**
+   * The care recipient ID (UUID) for the recipient.
+   * This is the ID used for fetching medications and doses.
+   * Only populated when listing recipients for a caregiver.
+   */
+  recipientCareRecipientId: string | null;
+  /**
+   * The care recipient's IANA timezone (e.g., "America/New_York").
+   * Used for displaying schedules in the recipient's local time.
+   * Only populated when listing recipients for a caregiver.
+   */
+  recipientTimezone: string | null;
 }
 
 /**

@@ -176,6 +176,7 @@ describe('Cross-Domain Authorization', () => {
         update: vi.fn(async () => null),
         setInactive: vi.fn(async () => null),
         setActive: vi.fn(async () => null),
+        delete: vi.fn(async () => false),
         createWithSchedules: vi.fn(async () => {
           throw new Error('not implemented');
         }),
@@ -284,6 +285,8 @@ describe('Cross-Domain Authorization', () => {
         listByMedication: vi.fn(async () => []),
         listByRecipient: vi.fn(async () => []),
         createMany: vi.fn(async () => []),
+        update: vi.fn(async () => null),
+        countActiveByMedication: vi.fn(async () => 0),
         ...overrides,
       };
     }
@@ -301,6 +304,7 @@ describe('Cross-Domain Authorization', () => {
               daysOfWeek: null,
               startDate: '2024-01-01',
               endDate: null,
+              dosageNotes: null,
               createdAt: new Date(),
               updatedAt: new Date(),
             };
@@ -329,6 +333,8 @@ describe('Cross-Domain Authorization', () => {
         listByMedication: vi.fn(async () => []),
         listByRecipient: vi.fn(async () => []),
         createMany: vi.fn(async () => []),
+        update: vi.fn(async () => null),
+        countActiveByMedication: vi.fn(async () => 0),
         ...overrides,
       };
     }
@@ -340,6 +346,7 @@ describe('Cross-Domain Authorization', () => {
         markTaken: vi.fn(async () => {
           throw new Error('not implemented');
         }),
+        unmarkTaken: vi.fn(async () => false),
         getTakenMap: vi.fn(async () => new Map()),
         ...overrides,
       };
@@ -357,6 +364,7 @@ describe('Cross-Domain Authorization', () => {
         update: vi.fn(async () => null),
         setInactive: vi.fn(async () => null),
         setActive: vi.fn(async () => null),
+        delete: vi.fn(async () => false),
         createWithSchedules: vi.fn(async () => {
           throw new Error('not implemented');
         }),
@@ -378,6 +386,7 @@ describe('Cross-Domain Authorization', () => {
               daysOfWeek: null,
               startDate: '2024-01-01',
               endDate: null,
+              dosageNotes: null,
               createdAt: new Date(),
               updatedAt: new Date(),
             };
@@ -416,6 +425,7 @@ describe('Cross-Domain Authorization', () => {
                 daysOfWeek: null,
                 startDate: '2024-01-01',
                 endDate: null,
+                dosageNotes: null,
                 createdAt: new Date(),
                 updatedAt: new Date(),
               },

@@ -20,6 +20,7 @@ function createRepoStub(overrides: Partial<MedicationRepository> = {}): Medicati
     update: vi.fn(async () => null),
     setInactive: vi.fn(async () => null),
     setActive: vi.fn(async () => null),
+    delete: vi.fn(async () => false),
     createWithSchedules: vi.fn(async () => {
       throw new Error('not implemented');
     }),
@@ -64,6 +65,7 @@ describe('createMedicationService', () => {
           daysOfWeek: null,
           startDate: s.startDate,
           endDate: null,
+          dosageNotes: null,
           createdAt: new Date(),
           updatedAt: new Date(),
         })),

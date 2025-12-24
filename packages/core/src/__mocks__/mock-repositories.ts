@@ -17,7 +17,7 @@ import type {
 } from '../domains/medications/entity.js';
 import type { MedicationRepository } from '../domains/medications/repository.js';
 
-import type { CreateScheduleInput, MedicationSchedule } from '../domains/schedules/entity.js';
+import type { CreateScheduleInput, MedicationSchedule, UpdateScheduleInput } from '../domains/schedules/entity.js';
 import type { ScheduleRepository } from '../domains/schedules/repository.js';
 
 import type { DoseTakenRepository } from '../domains/doses/repository.js';
@@ -207,6 +207,35 @@ export function createMockRepositories() {
       return updated;
     },
 
+    async delete(userId: UserId, medicationId: string) {
+      const existing = store.medications.get(medicationId);
+      const recipient = existing ? store.careRecipients.get(existing.recipientId) : null;
+      if (!existing || !recipient || recipient.createdByUserId !== userId) return false;
+
+      // Collect schedule IDs for this medication
+      const scheduleIds = new Set<string>();
+      for (const [id, schedule] of store.schedules) {
+        if (schedule.medicationId === medicationId) {
+          scheduleIds.add(id);
+        }
+      }
+
+      // Delete associated dose_taken records
+      for (const [key, doseTaken] of store.doseTakenByKey) {
+        if (scheduleIds.has(doseTaken.scheduleId)) {
+          store.doseTakenByKey.delete(key);
+        }
+      }
+
+      // Delete associated schedules
+      for (const scheduleId of scheduleIds) {
+        store.schedules.delete(scheduleId);
+      }
+
+      store.medications.delete(medicationId);
+      return true;
+    },
+
     async createWithSchedules(
       userId: UserId,
       recipientId: string,
@@ -227,6 +256,7 @@ export function createMockRepositories() {
           daysOfWeek: s.daysOfWeek ?? null,
           startDate: s.startDate,
           endDate: s.endDate ?? null,
+          dosageNotes: s.dosageNotes ?? null,
           createdAt: now,
           updatedAt: now,
         };
@@ -285,6 +315,7 @@ export function createMockRepositories() {
         daysOfWeek: input.daysOfWeek ?? null,
         startDate: input.startDate,
         endDate: input.endDate ?? null,
+        dosageNotes: input.dosageNotes ?? null,
         createdAt: now,
         updatedAt: now,
       }));
@@ -294,6 +325,46 @@ export function createMockRepositories() {
       }
 
       return created;
+    },
+
+    async update(userId: UserId, scheduleId: string, input) {
+      const schedule = store.schedules.get(scheduleId);
+      if (!schedule) return null;
+
+      const medication = store.medications.get(schedule.medicationId);
+      const recipient = medication ? store.careRecipients.get(medication.recipientId) : null;
+      if (!medication || !recipient || recipient.createdByUserId !== userId) {
+        return null;
+      }
+
+      const updated: MedicationSchedule = {
+        ...schedule,
+        recurrence: input.recurrence ?? schedule.recurrence,
+        timeOfDay: input.timeOfDay ?? schedule.timeOfDay,
+        timezone: input.timezone !== undefined ? input.timezone : schedule.timezone,
+        daysOfWeek: input.daysOfWeek !== undefined ? input.daysOfWeek : schedule.daysOfWeek,
+        startDate: input.startDate ?? schedule.startDate,
+        endDate: input.endDate !== undefined ? input.endDate : schedule.endDate,
+        dosageNotes: input.dosageNotes !== undefined ? input.dosageNotes : schedule.dosageNotes,
+        updatedAt: new Date(),
+      };
+      store.schedules.set(scheduleId, updated);
+      return updated;
+    },
+
+    async countActiveByMedication(userId: UserId, medicationId: string) {
+      const medication = store.medications.get(medicationId);
+      const recipient = medication ? store.careRecipients.get(medication.recipientId) : null;
+      if (!medication || !recipient || recipient.createdByUserId !== userId) {
+        return 0;
+      }
+
+      const today = new Date().toISOString().split('T')[0]!;
+      return Array.from(store.schedules.values()).filter((s) => {
+        if (s.medicationId !== medicationId) return false;
+        // Active if no endDate or endDate is in the future
+        return !s.endDate || s.endDate >= today;
+      }).length;
     },
   };
 
@@ -317,6 +388,13 @@ export function createMockRepositories() {
 
       store.doseTakenByKey.set(key, record);
       return record;
+    },
+
+    async unmarkTaken(_userId: UserId, scheduleId: string, scheduledFor: Date) {
+      const key = doseKey(scheduleId, scheduledFor);
+      const existed = store.doseTakenByKey.has(key);
+      store.doseTakenByKey.delete(key);
+      return existed;
     },
 
     async getTakenMap(userId: UserId, scheduleIds: string[], from: Date, to: Date) {

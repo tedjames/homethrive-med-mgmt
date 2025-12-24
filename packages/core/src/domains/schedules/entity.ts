@@ -13,6 +13,7 @@ export interface MedicationSchedule {
   daysOfWeek: number[] | null;
   startDate: string;
   endDate: string | null;
+  dosageNotes: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -25,6 +26,7 @@ export interface CreateScheduleInput {
   daysOfWeek?: number[] | null;
   startDate: string;
   endDate?: string | null;
+  dosageNotes?: string | null;
 }
 
 /**
@@ -32,3 +34,17 @@ export interface CreateScheduleInput {
  * The medicationId is not known yet (it will be generated), so it's omitted.
  */
 export type CreateScheduleForMedicationInput = Omit<CreateScheduleInput, 'medicationId'>;
+
+/**
+ * Input for updating an existing schedule.
+ * All fields are optional - only provided fields will be updated.
+ */
+export interface UpdateScheduleInput {
+  recurrence?: RecurrenceType;
+  timeOfDay?: string;
+  timezone?: string | null;
+  daysOfWeek?: number[] | null;
+  startDate?: string;
+  endDate?: string | null;
+  dosageNotes?: string | null;
+}

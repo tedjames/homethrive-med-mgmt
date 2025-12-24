@@ -19,6 +19,14 @@ export interface MedicationRepository {
   setActive(userId: UserId, medicationId: string): Promise<Medication | null>;
 
   /**
+   * Permanently deletes a medication and all associated data (schedules, dose history).
+   * This action cannot be undone.
+   *
+   * @returns true if deletion succeeded, false if medication not found or user lacks access
+   */
+  delete(userId: UserId, medicationId: string): Promise<boolean>;
+
+  /**
    * Atomically create a medication with its schedules.
    * Ensures the invariant: "each medication must have at least one schedule".
    */

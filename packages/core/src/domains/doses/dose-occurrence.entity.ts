@@ -8,7 +8,14 @@ export interface DoseOccurrence {
   medicationId: string;
   recipientId: string;
   medicationName: string;
+  instructions: string | null;
+  dosageNotes: string | null;
   scheduledFor: Date;
+  /** Time of day in HH:mm format */
+  timeOfDay: string;
+  recurrence: 'daily' | 'weekly';
+  /** ISO day of week numbers (1=Mon, 7=Sun), null for daily schedules */
+  daysOfWeek: number[] | null;
   status: 'scheduled' | 'taken';
   takenAt: Date | null;
   takenByUserId: string | null;

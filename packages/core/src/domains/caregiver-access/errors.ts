@@ -37,7 +37,7 @@ export function isAccessNotFound(err: unknown): err is AccessNotFoundError {
  */
 export class AccessAlreadyExistsError extends ConflictError {
   constructor(caregiverUserId: string, recipientUserId: string) {
-    super('An active access relationship already exists between these users', 'ACCESS_ALREADY_EXISTS', {
+    super('A request or invitation is already pending, or access has already been granted', 'ACCESS_ALREADY_EXISTS', {
       caregiverUserId,
       recipientUserId,
     });

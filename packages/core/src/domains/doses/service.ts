@@ -188,7 +188,12 @@ export function createDoseService(
           medicationId: medication.id,
           recipientId,
           medicationName: medication.name,
+          instructions: medication.instructions,
+          dosageNotes: schedule.dosageNotes,
           scheduledFor,
+          timeOfDay: schedule.timeOfDay,
+          recurrence: schedule.recurrence,
+          daysOfWeek: schedule.daysOfWeek,
           status: taken ? 'taken' : 'scheduled',
           takenAt: taken ? taken.takenAt : null,
           takenByUserId: taken ? taken.takenByUserId : null,
@@ -265,14 +270,80 @@ export function createDoseService(
       medicationId: medication.id,
       recipientId: medication.recipientId,
       medicationName: medication.name,
+      instructions: medication.instructions,
+      dosageNotes: schedule.dosageNotes,
       scheduledFor,
+      timeOfDay: schedule.timeOfDay,
+      recurrence: schedule.recurrence,
+      daysOfWeek: schedule.daysOfWeek,
       status: 'taken',
       takenAt: takenRecord.takenAt,
       takenByUserId: takenRecord.takenByUserId,
     };
   }
 
-  return { listUpcomingDoses, markTaken };
+  /**
+   * Unmarks a dose as taken (removes the taken record).
+   *
+   * This operation is idempotent - unmarking an already-unmarked dose will
+   * return the dose with status 'scheduled' without error.
+   *
+   * Validates that:
+   * - The dose ID is valid and decodable
+   * - The schedule exists (for authorization)
+   *
+   * @param userId - The user unmarking the dose
+   * @param doseId - The opaque dose ID (from listUpcomingDoses)
+   * @returns The dose occurrence with updated status (scheduled)
+   * @throws {DoseNotFoundError} If the dose ID is invalid or schedule doesn't exist
+   * @throws {MedicationNotFoundError} If the medication doesn't exist
+   *
+   * @example
+   * ```typescript
+   * // Unmark a dose as taken
+   * const dose = await service.unmarkTaken('user-123', 'v1:YWJjMTIz...');
+   * console.log(dose.status); // 'scheduled'
+   * console.log(dose.takenAt); // null
+   * ```
+   */
+  async function unmarkTaken(userId: UserId, doseId: string): Promise<DoseOccurrence> {
+    // Decode the opaque dose ID to get schedule and time
+    const { scheduleId, scheduledFor } = decodeDoseId(doseId);
+
+    // Verify the schedule exists (for authorization)
+    const schedule: MedicationSchedule | null = await scheduleRepo.findById(userId, scheduleId);
+    if (!schedule) {
+      throw new DoseNotFoundError(doseId);
+    }
+
+    // Verify the medication exists (for response data)
+    const medication = await medicationRepo.findById(userId, schedule.medicationId);
+    if (!medication) {
+      throw new MedicationNotFoundError(schedule.medicationId);
+    }
+
+    // Remove the taken record (idempotent - returns false if not found)
+    await doseTakenRepo.unmarkTaken(userId, scheduleId, scheduledFor);
+
+    return {
+      doseId,
+      scheduleId,
+      medicationId: medication.id,
+      recipientId: medication.recipientId,
+      medicationName: medication.name,
+      instructions: medication.instructions,
+      dosageNotes: schedule.dosageNotes,
+      scheduledFor,
+      timeOfDay: schedule.timeOfDay,
+      recurrence: schedule.recurrence,
+      daysOfWeek: schedule.daysOfWeek,
+      status: 'scheduled',
+      takenAt: null,
+      takenByUserId: null,
+    };
+  }
+
+  return { listUpcomingDoses, markTaken, unmarkTaken };
 }
 
 /**

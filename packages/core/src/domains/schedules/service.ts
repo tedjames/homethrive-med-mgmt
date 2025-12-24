@@ -14,12 +14,19 @@
  */
 
 import type { UserId } from '../../shared/types.js';
-import type { CreateScheduleInput, MedicationSchedule } from './entity.js';
-import { ScheduleNotFoundError } from './errors.js';
+import type { MedicationRepository } from '../medications/repository.js';
+import type { CreateScheduleInput, MedicationSchedule, UpdateScheduleInput } from './entity.js';
+import {
+  InvalidRecurrenceRuleError,
+  LastScheduleEndError,
+  ScheduleInactiveMedicationError,
+  ScheduleNotFoundError,
+  WeeklyScheduleMissingDaysError,
+} from './errors.js';
 import type { ScheduleRepository } from './repository.js';
 
 /**
- * Creates a schedule service instance with the provided repository.
+ * Creates a schedule service instance with the provided repositories.
  *
  * Uses functional factory pattern for dependency injection, enabling easy testing
  * with mock repositories.
@@ -29,17 +36,19 @@ import type { ScheduleRepository } from './repository.js';
  * schedule" invariant. This service is used for additional schedule management.
  *
  * @param repo - The schedule repository implementation
+ * @param medicationRepo - Optional medication repository for checking medication active status
  * @returns Service object with schedule management methods
  *
  * @example
  * ```typescript
- * const repo = new DrizzleScheduleRepository(db);
- * const service = createScheduleService(repo);
+ * const scheduleRepo = new DrizzleScheduleRepository(db);
+ * const medicationRepo = new DrizzleMedicationRepository(db);
+ * const service = createScheduleService(scheduleRepo, medicationRepo);
  *
  * const schedules = await service.listByMedication(userId, medicationId);
  * ```
  */
-export function createScheduleService(repo: ScheduleRepository) {
+export function createScheduleService(repo: ScheduleRepository, medicationRepo?: MedicationRepository) {
   /**
    * Creates multiple schedules at once.
    *
@@ -140,7 +149,108 @@ export function createScheduleService(repo: ScheduleRepository) {
     return repo.listByRecipient(userId, recipientId);
   }
 
-  return { createMany, getById, listByMedication, listByRecipient };
+  /**
+   * Updates a schedule's properties.
+   *
+   * Validates the update against business rules:
+   * - Weekly schedules must have at least one day of week
+   * - Daily schedules must not have days of week
+   * - If medication repository is provided, checks that medication is active
+   *
+   * @param userId - The requesting user's ID (for authorization)
+   * @param scheduleId - The schedule's unique identifier
+   * @param input - The fields to update
+   * @returns The updated schedule
+   * @throws {ScheduleNotFoundError} If the schedule doesn't exist
+   * @throws {ScheduleInactiveMedicationError} If the medication is inactive
+   * @throws {WeeklyScheduleMissingDaysError} If changing to weekly without days
+   * @throws {InvalidRecurrenceRuleError} If recurrence rules are invalid
+   */
+  async function update(
+    userId: UserId,
+    scheduleId: string,
+    input: UpdateScheduleInput
+  ): Promise<MedicationSchedule> {
+    // Fetch existing schedule
+    const existing = await repo.findById(userId, scheduleId);
+    if (!existing) {
+      throw new ScheduleNotFoundError(scheduleId);
+    }
+
+    // Check medication is active (if medication repo provided)
+    if (medicationRepo) {
+      const medication = await medicationRepo.findById(userId, existing.medicationId);
+      if (!medication || !medication.isActive) {
+        throw new ScheduleInactiveMedicationError(scheduleId);
+      }
+    }
+
+    // Determine the final recurrence and daysOfWeek after the update
+    const newRecurrence = input.recurrence ?? existing.recurrence;
+    const newDaysOfWeek = input.daysOfWeek !== undefined ? input.daysOfWeek : existing.daysOfWeek;
+
+    // Validate recurrence rules
+    if (newRecurrence === 'weekly' && (!newDaysOfWeek || newDaysOfWeek.length === 0)) {
+      throw new WeeklyScheduleMissingDaysError();
+    }
+    if (newRecurrence === 'daily' && newDaysOfWeek !== null && newDaysOfWeek !== undefined) {
+      throw new InvalidRecurrenceRuleError('Daily schedules must not specify days of week');
+    }
+
+    // Perform update
+    const updated = await repo.update(userId, scheduleId, input);
+    if (!updated) {
+      throw new ScheduleNotFoundError(scheduleId);
+    }
+
+    return updated;
+  }
+
+  /**
+   * Ends a schedule by setting its endDate to today.
+   *
+   * This is a "soft delete" that preserves dose history while stopping
+   * the schedule from generating new doses.
+   *
+   * @param userId - The requesting user's ID (for authorization)
+   * @param scheduleId - The schedule's unique identifier
+   * @returns The updated schedule with endDate set
+   * @throws {ScheduleNotFoundError} If the schedule doesn't exist
+   * @throws {ScheduleInactiveMedicationError} If the medication is inactive
+   * @throws {LastScheduleEndError} If this is the last active schedule
+   */
+  async function endSchedule(userId: UserId, scheduleId: string): Promise<MedicationSchedule> {
+    // Fetch existing schedule
+    const existing = await repo.findById(userId, scheduleId);
+    if (!existing) {
+      throw new ScheduleNotFoundError(scheduleId);
+    }
+
+    // Check medication is active (if medication repo provided)
+    if (medicationRepo) {
+      const medication = await medicationRepo.findById(userId, existing.medicationId);
+      if (!medication || !medication.isActive) {
+        throw new ScheduleInactiveMedicationError(scheduleId);
+      }
+    }
+
+    // Check this is not the last active schedule
+    const activeCount = await repo.countActiveByMedication(userId, existing.medicationId);
+    if (activeCount <= 1) {
+      throw new LastScheduleEndError(existing.medicationId);
+    }
+
+    // Set endDate to today
+    const today = new Date().toISOString().split('T')[0]!; // YYYY-MM-DD format
+    const updated = await repo.update(userId, scheduleId, { endDate: today });
+    if (!updated) {
+      throw new ScheduleNotFoundError(scheduleId);
+    }
+
+    return updated;
+  }
+
+  return { createMany, getById, listByMedication, listByRecipient, update, endSchedule };
 }
 
 /**

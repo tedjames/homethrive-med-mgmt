@@ -19,6 +19,7 @@ describe('generateOccurrences - daily', () => {
       daysOfWeek: null,
       startDate: '2024-12-01',
       endDate: null,
+      dosageNotes: null,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -41,6 +42,7 @@ describe('generateOccurrences - daily', () => {
       daysOfWeek: null,
       startDate: '2024-03-09',
       endDate: null,
+      dosageNotes: null,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -73,6 +75,7 @@ describe('generateOccurrences - daily', () => {
       daysOfWeek: null,
       startDate: '2024-11-02',
       endDate: null,
+      dosageNotes: null,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -105,6 +108,7 @@ describe('generateOccurrences - weekly', () => {
       daysOfWeek: [1, 3, 5],
       startDate: '2024-12-01',
       endDate: null,
+      dosageNotes: null,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -127,6 +131,7 @@ describe('generateOccurrences - weekly', () => {
       daysOfWeek: [1, 4, 7],
       startDate: '2024-12-01',
       endDate: null,
+      dosageNotes: null,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -155,6 +160,7 @@ describe('generateOccurrences - window validation', () => {
       daysOfWeek: null,
       startDate: '2024-12-01',
       endDate: null,
+      dosageNotes: null,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -175,6 +181,7 @@ describe('generateOccurrences - window validation', () => {
       daysOfWeek: null,
       startDate: '2024-12-01',
       endDate: null,
+      dosageNotes: null,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -196,6 +203,7 @@ describe('generateOccurrences - window validation', () => {
       daysOfWeek: null,
       startDate: '2024-12-01',
       endDate: null,
+      dosageNotes: null,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -226,6 +234,7 @@ describe('generateOccurrences - timezone edge cases', () => {
       daysOfWeek: null,
       startDate: '2024-12-01',
       endDate: null,
+      dosageNotes: null,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -252,6 +261,7 @@ describe('generateOccurrences - timezone edge cases', () => {
       daysOfWeek: null,
       startDate: '2024-03-09',
       endDate: null,
+      dosageNotes: null,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -281,6 +291,7 @@ describe('generateOccurrences - timezone edge cases', () => {
       daysOfWeek: null,
       startDate: '2024-12-01',
       endDate: null,
+      dosageNotes: null,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -310,6 +321,7 @@ describe('generateOccurrences - timezone edge cases', () => {
       daysOfWeek: [6, 7], // Sat=6, Sun=7
       startDate: '2024-03-01',
       endDate: null,
+      dosageNotes: null,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -348,6 +360,7 @@ describe('generateOccurrences - date boundaries', () => {
       daysOfWeek: null,
       startDate: '2024-12-30',
       endDate: null,
+      dosageNotes: null,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -372,6 +385,7 @@ describe('generateOccurrences - date boundaries', () => {
       daysOfWeek: null,
       startDate: '2024-02-28',
       endDate: null,
+      dosageNotes: null,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -397,6 +411,7 @@ describe('generateOccurrences - date boundaries', () => {
       daysOfWeek: null,
       startDate: '2024-12-01',
       endDate: '2024-12-05',
+      dosageNotes: null,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -421,6 +436,7 @@ describe('generateOccurrences - date boundaries', () => {
       daysOfWeek: null,
       startDate: '2024-12-05',
       endDate: null,
+      dosageNotes: null,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -445,6 +461,7 @@ describe('generateOccurrences - date boundaries', () => {
       daysOfWeek: null,
       startDate: '2024-11-01',
       endDate: '2024-11-30',
+      dosageNotes: null,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -466,6 +483,7 @@ describe('generateOccurrences - date boundaries', () => {
       daysOfWeek: null,
       startDate: '2025-01-01',
       endDate: null,
+      dosageNotes: null,
       createdAt: new Date(),
       updatedAt: new Date(),
     };

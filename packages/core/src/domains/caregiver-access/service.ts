@@ -232,14 +232,14 @@ export function createCaregiverAccessService(repo: CaregiverAccessRepository) {
   }
 
   /**
-   * Cancel access (caregiver cancels their request or declines an invite).
+   * Cancel or leave access (caregiver cancels their request, declines an invite, or leaves approved access).
    *
    * @param caregiverUserId - The caregiver's user ID
    * @param accessId - The access relationship ID
    * @returns The updated access relationship (status = 'revoked')
    * @throws {AccessNotFoundError} If access not found
    * @throws {AccessNotAuthorizedError} If user is not the caregiver
-   * @throws {InvalidAccessStateError} If access is already approved or revoked
+   * @throws {InvalidAccessStateError} If access is already revoked
    */
   async function cancelAccess(
     caregiverUserId: UserId,
@@ -255,9 +255,9 @@ export function createCaregiverAccessService(repo: CaregiverAccessRepository) {
       throw new AccessNotAuthorizedError(accessId, 'cancel');
     }
 
-    // Can only cancel pending states
-    if (access.status !== 'pending_request' && access.status !== 'pending_invite') {
-      throw new InvalidAccessStateError(accessId, access.status, ['pending_request', 'pending_invite']);
+    // Cannot cancel if already revoked
+    if (access.status === 'revoked') {
+      throw new InvalidAccessStateError(accessId, access.status, ['pending_request', 'pending_invite', 'approved']);
     }
 
     const updated = await repo.updateStatus(accessId, 'revoked', {
