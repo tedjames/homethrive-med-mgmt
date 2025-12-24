@@ -27,6 +27,15 @@ const completeOnboardingSchema = z
     message: 'At least one role must be selected',
   });
 
+const updateRolesSchema = z
+  .object({
+    isRecipient: z.boolean(),
+    isCaregiver: z.boolean(),
+  })
+  .refine((data) => data.isRecipient || data.isCaregiver, {
+    message: 'At least one role must be selected',
+  });
+
 export default async function onboardingRoutes(fastify: FastifyInstance): Promise<void> {
   const { userRepository, careRecipientRepository } = fastify.container;
 
@@ -96,6 +105,37 @@ export default async function onboardingRoutes(fastify: FastifyInstance): Promis
     } catch (err) {
       fastify.log.error({ err, userId }, 'Failed to complete onboarding');
       return sendError(reply, 'Failed to complete onboarding', HTTP_STATUS.INTERNAL_ERROR);
+    }
+  });
+
+  /**
+   * Update user roles.
+   * PATCH /onboarding/roles
+   */
+  fastify.patch('/onboarding/roles', async (request, reply) => {
+    const userId = resolveUserId(request);
+
+    const parseResult = updateRolesSchema.safeParse(request.body);
+    if (!parseResult.success) {
+      const firstError = parseResult.error.errors[0];
+      return sendError(reply, firstError?.message ?? 'Invalid input', HTTP_STATUS.BAD_REQUEST);
+    }
+
+    const { isRecipient, isCaregiver } = parseResult.data;
+
+    try {
+      const user = await userRepository.updateRoles(userId, {
+        isRecipient,
+        isCaregiver,
+      });
+
+      return sendSuccess(reply, {
+        isRecipient: user.isRecipient,
+        isCaregiver: user.isCaregiver,
+      });
+    } catch (err) {
+      fastify.log.error({ err, userId }, 'Failed to update roles');
+      return sendError(reply, 'Failed to update roles', HTTP_STATUS.INTERNAL_ERROR);
     }
   });
 }

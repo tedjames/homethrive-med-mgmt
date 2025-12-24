@@ -7,9 +7,14 @@ import { z } from 'zod';
 
 import {
   updateMedicationInputSchema,
+  updateScheduleInputSchema,
   isMedicationNotFound,
   isMedicationRequiresSchedule,
   isInactiveMedication,
+  isMedicationNotInactive,
+  isScheduleNotFound,
+  isScheduleInactiveMedication,
+  isLastScheduleEnd,
   isValidIanaTimezone,
   type CreateScheduleForMedicationInput,
 } from '@homethrive/core';
@@ -26,6 +31,7 @@ const scheduleForMedicationSchema = z
     daysOfWeek: z.array(z.number().int().min(1).max(7)).min(1).nullable().optional(),
     startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Must be YYYY-MM-DD'),
     endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Must be YYYY-MM-DD').nullable().optional(),
+    dosageNotes: z.string().max(255).nullable().optional(),
   })
   .refine(
     (data) => {
@@ -151,6 +157,114 @@ export default async function medicationsRoutes(fastify: FastifyInstance): Promi
     } catch (err) {
       if (isMedicationNotFound(err)) {
         return sendError(reply, err.message, HTTP_STATUS.NOT_FOUND);
+      }
+      throw err;
+    }
+  });
+
+  // Reactivate medication
+  fastify.post('/medications/:id/reactivate', async (request, reply) => {
+    const userId = resolveUserId(request);
+    const { id } = request.params as { id: string };
+
+    try {
+      const medication = await medicationService.reactivate(userId, id);
+      return sendSuccess(reply, medication);
+    } catch (err) {
+      if (isMedicationNotFound(err)) {
+        return sendError(reply, err.message, HTTP_STATUS.NOT_FOUND);
+      }
+      throw err;
+    }
+  });
+
+  // Permanently delete medication (must be inactive first)
+  fastify.delete('/medications/:id', async (request, reply) => {
+    const userId = resolveUserId(request);
+    const { id } = request.params as { id: string };
+
+    try {
+      await medicationService.deletePermanently(userId, id);
+      return sendSuccess(reply, { deleted: true });
+    } catch (err) {
+      if (isMedicationNotFound(err)) {
+        return sendError(reply, err.message, HTTP_STATUS.NOT_FOUND);
+      }
+      if (isMedicationNotInactive(err)) {
+        return sendError(reply, err.message, HTTP_STATUS.BAD_REQUEST, 'MEDICATION_NOT_INACTIVE');
+      }
+      throw err;
+    }
+  });
+
+  // === Schedule Endpoints ===
+
+  // Add a new schedule to an existing medication
+  fastify.post('/medications/:medicationId/schedules', async (request, reply) => {
+    const userId = resolveUserId(request);
+    const { medicationId } = request.params as { medicationId: string };
+
+    const parseResult = scheduleForMedicationSchema.safeParse(request.body);
+    if (!parseResult.success) {
+      return sendError(reply, parseResult.error.message, HTTP_STATUS.BAD_REQUEST);
+    }
+
+    try {
+      const schedules = await scheduleService.createMany(userId, [
+        {
+          medicationId,
+          ...parseResult.data,
+        } as CreateScheduleForMedicationInput & { medicationId: string },
+      ]);
+
+      return sendSuccess(reply, schedules[0], HTTP_STATUS.CREATED);
+    } catch (err) {
+      // Error will be thrown if medication doesn't exist or user lacks access
+      throw err;
+    }
+  });
+
+  // Update a schedule
+  fastify.patch('/schedules/:scheduleId', async (request, reply) => {
+    const userId = resolveUserId(request);
+    const { scheduleId } = request.params as { scheduleId: string };
+
+    const parseResult = updateScheduleInputSchema.safeParse(request.body);
+    if (!parseResult.success) {
+      return sendError(reply, parseResult.error.message, HTTP_STATUS.BAD_REQUEST);
+    }
+
+    try {
+      const schedule = await scheduleService.update(userId, scheduleId, parseResult.data);
+      return sendSuccess(reply, schedule);
+    } catch (err) {
+      if (isScheduleNotFound(err)) {
+        return sendError(reply, err.message, HTTP_STATUS.NOT_FOUND);
+      }
+      if (isScheduleInactiveMedication(err)) {
+        return sendError(reply, err.message, HTTP_STATUS.CONFLICT, 'MEDICATION_INACTIVE');
+      }
+      throw err;
+    }
+  });
+
+  // End a schedule (soft delete - sets endDate to today)
+  fastify.post('/schedules/:scheduleId/end', async (request, reply) => {
+    const userId = resolveUserId(request);
+    const { scheduleId } = request.params as { scheduleId: string };
+
+    try {
+      const schedule = await scheduleService.endSchedule(userId, scheduleId);
+      return sendSuccess(reply, schedule);
+    } catch (err) {
+      if (isScheduleNotFound(err)) {
+        return sendError(reply, err.message, HTTP_STATUS.NOT_FOUND);
+      }
+      if (isScheduleInactiveMedication(err)) {
+        return sendError(reply, err.message, HTTP_STATUS.CONFLICT, 'MEDICATION_INACTIVE');
+      }
+      if (isLastScheduleEnd(err)) {
+        return sendError(reply, err.message, HTTP_STATUS.BAD_REQUEST, 'LAST_SCHEDULE');
       }
       throw err;
     }

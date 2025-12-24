@@ -6,6 +6,7 @@
 
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import fp from 'fastify-plugin';
+import type { ClerkClient } from '@clerk/fastify';
 
 import { getConfigSync } from '../config.js';
 
@@ -43,6 +44,7 @@ const authPlugin = fp(async (fastify: FastifyInstance) => {
   });
 
   let clerkEnabled = false;
+  let clerkClient: ClerkClient | null = null;
 
   // Register Clerk plugin in production mode
   if (config.enableClerk) {
@@ -57,6 +59,15 @@ const authPlugin = fp(async (fastify: FastifyInstance) => {
           secretKey: config.clerkSecretKey,
         });
         clerkEnabled = true;
+
+        // Create our own Clerk client with the secret key from config
+        // The singleton clerkClient reads from CLERK_SECRET_KEY env var which isn't set
+        if (config.clerkSecretKey) {
+          const backendMod = await import('@clerk/backend');
+          clerkClient = backendMod.createClerkClient({ secretKey: config.clerkSecretKey });
+          fastify.log.info('Clerk client initialized with secret key from config');
+        }
+
         fastify.log.info('Clerk Fastify plugin registered');
       }
     } catch (error) {
@@ -85,13 +96,31 @@ const authPlugin = fp(async (fastify: FastifyInstance) => {
 
       // Look up or create database user from Clerk ID
       try {
-        const user = await userRepository.upsert({ clerkUserId });
+        // Fetch user details from Clerk to get email, name, and image
+        let email: string | null = null;
+        let displayName: string | null = null;
+        let imageUrl: string | null = null;
+
+        if (clerkClient) {
+          try {
+            const clerkUser = await clerkClient.users.getUser(clerkUserId);
+            email = clerkUser.emailAddresses?.[0]?.emailAddress ?? null;
+            displayName = clerkUser.firstName
+              ? `${clerkUser.firstName}${clerkUser.lastName ? ` ${clerkUser.lastName}` : ''}`
+              : null;
+            imageUrl = clerkUser.imageUrl ?? null;
+          } catch (clerkErr) {
+            fastify.log.warn({ err: clerkErr, clerkUserId }, 'Failed to fetch user details from Clerk');
+          }
+        }
+
+        const user = await userRepository.upsert({ clerkUserId, email, displayName, imageUrl });
         request.userId = user.clerkUserId; // Use clerkUserId as the userId for domain services
 
         // Auto-create care recipient profile if it doesn't exist
         // Use display name from user record, fallback to email or "My Profile"
-        const displayName = user.displayName || user.email?.split('@')[0] || 'My Profile';
-        await careRecipientRepository.findOrCreateOwnProfile(user.clerkUserId, displayName);
+        const profileDisplayName = user.displayName || user.email?.split('@')[0] || 'My Profile';
+        await careRecipientRepository.findOrCreateOwnProfile(user.clerkUserId, profileDisplayName);
       } catch (err) {
         fastify.log.error({ err, clerkUserId }, 'Failed to resolve user from Clerk ID');
         request.userId = null;

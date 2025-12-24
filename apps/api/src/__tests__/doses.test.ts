@@ -430,4 +430,195 @@ describe('Doses API', () => {
       expect(response.statusCode).toBe(404);
     });
   });
+
+  describe('DELETE /v1/doses/:doseId/taken', () => {
+    it('unmarks a taken dose', async () => {
+      // Create a medication with a daily schedule starting today
+      const today = new Date().toISOString().split('T')[0];
+      await app.inject({
+        method: 'POST',
+        url: `/v1/recipients/${recipientId}/medications`,
+        headers: authHeader(testUserId),
+        payload: {
+          name: 'Aspirin',
+          schedules: [
+            {
+              recurrence: 'daily',
+              timeOfDay: '08:00',
+              timezone: 'America/New_York',
+              startDate: today,
+            },
+          ],
+        },
+      });
+
+      // Get a dose
+      const fromDate = new Date();
+      const toDate = new Date(fromDate.getTime() + 7 * 24 * 60 * 60 * 1000);
+
+      const listResponse = await app.inject({
+        method: 'GET',
+        url: `/v1/recipients/${recipientId}/doses?from=${fromDate.toISOString()}&to=${toDate.toISOString()}`,
+        headers: authHeader(testUserId),
+      });
+
+      const doses = listResponse.json().data;
+      expect(doses.length).toBeGreaterThan(0);
+      const doseId = doses[0].doseId;
+
+      // First mark as taken
+      const markResponse = await app.inject({
+        method: 'POST',
+        url: `/v1/doses/${encodeURIComponent(doseId)}/taken`,
+        headers: authHeader(testUserId),
+      });
+      expect(markResponse.statusCode).toBe(200);
+      expect(markResponse.json().data.status).toBe('taken');
+
+      // Now unmark
+      const unmarkResponse = await app.inject({
+        method: 'DELETE',
+        url: `/v1/doses/${encodeURIComponent(doseId)}/taken`,
+        headers: authHeader(testUserId),
+      });
+
+      expect(unmarkResponse.statusCode).toBe(200);
+      const body = unmarkResponse.json();
+      expect(body.data.status).toBe('scheduled');
+      expect(body.data.takenAt).toBeNull();
+    });
+
+    it('is idempotent - unmarking already-unmarked dose returns success', async () => {
+      // Create medication and get a dose
+      const today = new Date().toISOString().split('T')[0];
+      await app.inject({
+        method: 'POST',
+        url: `/v1/recipients/${recipientId}/medications`,
+        headers: authHeader(testUserId),
+        payload: {
+          name: 'Aspirin',
+          schedules: [
+            {
+              recurrence: 'daily',
+              timeOfDay: '08:00',
+              timezone: 'America/New_York',
+              startDate: today,
+            },
+          ],
+        },
+      });
+
+      const fromDate = new Date();
+      const toDate = new Date(fromDate.getTime() + 7 * 24 * 60 * 60 * 1000);
+
+      const listResponse = await app.inject({
+        method: 'GET',
+        url: `/v1/recipients/${recipientId}/doses?from=${fromDate.toISOString()}&to=${toDate.toISOString()}`,
+        headers: authHeader(testUserId),
+      });
+
+      const doses = listResponse.json().data;
+      const doseId = doses[0].doseId;
+
+      // Dose is not marked taken - try to unmark anyway
+      const response = await app.inject({
+        method: 'DELETE',
+        url: `/v1/doses/${encodeURIComponent(doseId)}/taken`,
+        headers: authHeader(testUserId),
+      });
+
+      expect(response.statusCode).toBe(200);
+      const body = response.json();
+      expect(body.data.status).toBe('scheduled');
+    });
+
+    it('returns 404 for non-existent dose', async () => {
+      // Create a properly encoded fake dose ID with a non-existent schedule
+      const fakeScheduleId = '00000000-0000-0000-0000-000000000000';
+      const fakeTimestamp = '2050-01-01T12:00:00.000Z';
+      const payload = `${fakeScheduleId}|${fakeTimestamp}`;
+      const encoded = Buffer.from(payload, 'utf8').toString('base64url');
+      const fakeDoseId = `v1:${encoded}`;
+
+      const response = await app.inject({
+        method: 'DELETE',
+        url: `/v1/doses/${encodeURIComponent(fakeDoseId)}/taken`,
+        headers: authHeader(testUserId),
+      });
+
+      expect(response.statusCode).toBe(404);
+    });
+
+    it('returns 400 for invalid dose ID format', async () => {
+      const response = await app.inject({
+        method: 'DELETE',
+        url: '/v1/doses/invalid-dose-id/taken',
+        headers: authHeader(testUserId),
+      });
+
+      expect(response.statusCode).toBe(400);
+      const body = response.json();
+      expect(body.code).toBe('INVALID_DOSE_ID');
+    });
+
+    it('returns 401 without auth header', async () => {
+      const response = await app.inject({
+        method: 'DELETE',
+        url: '/v1/doses/some-dose-id/taken',
+      });
+
+      expect(response.statusCode).toBe(401);
+    });
+
+    it('returns 404 when unmarking another user\'s dose', async () => {
+      // User A creates medication
+      const today = new Date().toISOString().split('T')[0];
+      await app.inject({
+        method: 'POST',
+        url: `/v1/recipients/${recipientId}/medications`,
+        headers: authHeader(testUserId),
+        payload: {
+          name: 'Aspirin',
+          schedules: [
+            {
+              recurrence: 'daily',
+              timeOfDay: '08:00',
+              timezone: 'America/New_York',
+              startDate: today,
+            },
+          ],
+        },
+      });
+
+      // Get a dose ID and mark it as taken
+      const fromDate = new Date();
+      const toDate = new Date(fromDate.getTime() + 7 * 24 * 60 * 60 * 1000);
+
+      const listResponse = await app.inject({
+        method: 'GET',
+        url: `/v1/recipients/${recipientId}/doses?from=${fromDate.toISOString()}&to=${toDate.toISOString()}`,
+        headers: authHeader(testUserId),
+      });
+
+      const doses = listResponse.json().data;
+      const doseId = doses[0].doseId;
+
+      // Mark as taken by User A
+      await app.inject({
+        method: 'POST',
+        url: `/v1/doses/${encodeURIComponent(doseId)}/taken`,
+        headers: authHeader(testUserId),
+      });
+
+      // User B tries to unmark User A's dose
+      const otherUserId = await generateTestUserId();
+      const response = await app.inject({
+        method: 'DELETE',
+        url: `/v1/doses/${encodeURIComponent(doseId)}/taken`,
+        headers: authHeader(otherUserId),
+      });
+
+      expect(response.statusCode).toBe(404);
+    });
+  });
 });

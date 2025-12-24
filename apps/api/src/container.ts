@@ -54,7 +54,7 @@ export function createContainer(databaseUrl: string): Container {
   const careRecipientService = createCareRecipientService(careRecipientRepository);
   const caregiverAccessService = createCaregiverAccessService(caregiverAccessRepository);
   const medicationService = createMedicationService(medicationRepository);
-  const scheduleService = createScheduleService(scheduleRepository);
+  const scheduleService = createScheduleService(scheduleRepository, medicationRepository);
   const doseService = createDoseService(scheduleRepository, doseTakenRepository, medicationRepository);
 
   return {

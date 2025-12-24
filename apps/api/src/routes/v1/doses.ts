@@ -59,4 +59,23 @@ export default async function dosesRoutes(fastify: FastifyInstance): Promise<voi
       throw err;
     }
   });
+
+  // Unmark dose as taken
+  fastify.delete('/doses/:doseId/taken', async (request, reply) => {
+    const userId = resolveUserId(request);
+    const { doseId } = request.params as { doseId: string };
+
+    try {
+      const dose = await doseService.unmarkTaken(userId, doseId);
+      return sendSuccess(reply, dose);
+    } catch (err) {
+      if (isDoseNotFound(err)) {
+        return sendError(reply, err.message, HTTP_STATUS.NOT_FOUND);
+      }
+      if (isInvalidDoseId(err)) {
+        return sendError(reply, err.message, HTTP_STATUS.BAD_REQUEST, 'INVALID_DOSE_ID');
+      }
+      throw err;
+    }
+  });
 }
