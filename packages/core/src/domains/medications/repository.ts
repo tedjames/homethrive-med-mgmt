@@ -16,6 +16,7 @@ export interface MedicationRepository {
   create(userId: UserId, recipientId: string, input: CreateMedicationInput): Promise<Medication>;
   update(userId: UserId, medicationId: string, input: UpdateMedicationInput): Promise<Medication | null>;
   setInactive(userId: UserId, medicationId: string, inactiveAt: Date): Promise<Medication | null>;
+  setActive(userId: UserId, medicationId: string): Promise<Medication | null>;
 
   /**
    * Atomically create a medication with its schedules.

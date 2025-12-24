@@ -127,7 +127,46 @@ export function createCareRecipientService(repo: CareRecipientRepository) {
     return recipient;
   }
 
-  return { create, getById, listForCaregiver, update };
+  /**
+   * Retrieves the user's own care recipient profile.
+   *
+   * @param userId - The user's ID
+   * @returns The user's profile
+   * @throws {CareRecipientNotFoundError} If the user doesn't have a profile yet
+   */
+  async function getMyProfile(userId: UserId): Promise<CareRecipient> {
+    const profile = await repo.findByUserId(userId);
+    if (!profile) {
+      throw new CareRecipientNotFoundError(`profile for user ${userId}`);
+    }
+    return profile;
+  }
+
+  /**
+   * Updates the user's own care recipient profile.
+   *
+   * @param userId - The user's ID
+   * @param input - Fields to update (displayName, timezone)
+   * @returns The updated profile
+   * @throws {CareRecipientNotFoundError} If the user doesn't have a profile yet
+   */
+  async function updateMyProfile(
+    userId: UserId,
+    input: UpdateCareRecipientInput
+  ): Promise<CareRecipient> {
+    const profile = await repo.findByUserId(userId);
+    if (!profile) {
+      throw new CareRecipientNotFoundError(`profile for user ${userId}`);
+    }
+    // Use the existing update method which checks access
+    const updated = await repo.update(userId, profile.id, input);
+    if (!updated) {
+      throw new CareRecipientNotFoundError(profile.id);
+    }
+    return updated;
+  }
+
+  return { create, getById, listForCaregiver, update, getMyProfile, updateMyProfile };
 }
 
 /**

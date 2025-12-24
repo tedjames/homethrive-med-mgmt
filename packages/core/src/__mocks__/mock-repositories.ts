@@ -74,6 +74,7 @@ export function createMockRepositories() {
       const now = new Date();
       const recipient: CareRecipient = {
         id: nextRecipientId(),
+        userId: null, // Legacy create - no owner user yet
         createdByUserId: userId,
         displayName: input.displayName,
         timezone: input.timezone ?? 'America/New_York',
@@ -86,7 +87,7 @@ export function createMockRepositories() {
 
     async update(userId: UserId, recipientId: string, input: UpdateCareRecipientInput) {
       const existing = store.careRecipients.get(recipientId);
-      if (!existing || existing.createdByUserId !== userId) return null;
+      if (!existing || (existing.createdByUserId !== userId && existing.userId !== userId)) return null;
 
       const updated: CareRecipient = {
         ...existing,
@@ -96,6 +97,30 @@ export function createMockRepositories() {
       };
       store.careRecipients.set(updated.id, updated);
       return updated;
+    },
+
+    async findByUserId(userId: UserId) {
+      return Array.from(store.careRecipients.values()).find((r) => r.userId === userId) ?? null;
+    },
+
+    async findOrCreateOwnProfile(userId: UserId, displayName: string) {
+      // Check if profile already exists
+      const existing = Array.from(store.careRecipients.values()).find((r) => r.userId === userId);
+      if (existing) return existing;
+
+      // Create new profile
+      const now = new Date();
+      const recipient: CareRecipient = {
+        id: nextRecipientId(),
+        userId,
+        createdByUserId: null,
+        displayName,
+        timezone: 'America/New_York',
+        createdAt: now,
+        updatedAt: now,
+      };
+      store.careRecipients.set(recipient.id, recipient);
+      return recipient;
     },
   };
 
@@ -161,6 +186,21 @@ export function createMockRepositories() {
         ...existing,
         isActive: false,
         inactiveAt,
+        updatedAt: new Date(),
+      };
+      store.medications.set(updated.id, updated);
+      return updated;
+    },
+
+    async setActive(userId: UserId, medicationId: string) {
+      const existing = store.medications.get(medicationId);
+      const recipient = existing ? store.careRecipients.get(existing.recipientId) : null;
+      if (!existing || !recipient || recipient.createdByUserId !== userId) return null;
+
+      const updated: Medication = {
+        ...existing,
+        isActive: true,
+        inactiveAt: null,
         updatedAt: new Date(),
       };
       store.medications.set(updated.id, updated);

@@ -17,6 +17,10 @@ function createRepoStub(overrides: Partial<CareRecipientRepository> = {}): CareR
       throw new Error('not implemented');
     }),
     update: vi.fn(async () => null),
+    findByUserId: vi.fn(async () => null),
+    findOrCreateOwnProfile: vi.fn(async () => {
+      throw new Error('not implemented');
+    }),
     ...overrides,
   };
 }
@@ -28,6 +32,7 @@ describe('createCareRecipientService', () => {
     const repo = createRepoStub({
       create: vi.fn(async (uid, input) => ({
         id: 'recipient-1',
+        userId: null,
         createdByUserId: uid,
         displayName: input.displayName,
         timezone: input.timezone ?? 'America/New_York',
@@ -78,6 +83,7 @@ describe('createCareRecipientService', () => {
         if (uid !== 'owner_123' || id !== 'recipient-1') return null;
         return {
           id: 'recipient-1',
+          userId: null,
           createdByUserId: 'owner_123',
           displayName: 'Grandma',
           timezone: 'America/New_York',
@@ -100,6 +106,7 @@ describe('createCareRecipientService', () => {
       listForCaregiver: vi.fn(async () => [
         {
           id: 'recipient-1',
+          userId: null,
           createdByUserId: userId,
           displayName: 'Grandma',
           timezone: 'America/New_York',
@@ -131,6 +138,7 @@ describe('createCareRecipientService', () => {
     const repo = createRepoStub({
       update: vi.fn(async (uid, id, input) => ({
         id,
+        userId: null,
         createdByUserId: uid,
         displayName: input.displayName ?? 'Grandma',
         timezone: input.timezone ?? 'America/New_York',
@@ -144,5 +152,86 @@ describe('createCareRecipientService', () => {
 
     expect(recipient.displayName).toBe('Updated Name');
     expect(repo.update).toHaveBeenCalledWith(userId, 'recipient-1', { displayName: 'Updated Name' });
+  });
+
+  it('getMyProfile returns the user profile', async () => {
+    const profile = {
+      id: 'profile-1',
+      userId,
+      createdByUserId: null,
+      displayName: 'My Profile',
+      timezone: 'America/New_York',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    const repo = createRepoStub({
+      findByUserId: vi.fn(async () => profile),
+    });
+
+    const service = createCareRecipientService(repo);
+    const result = await service.getMyProfile(userId);
+
+    expect(result).toEqual(profile);
+    expect(repo.findByUserId).toHaveBeenCalledWith(userId);
+  });
+
+  it('getMyProfile throws CareRecipientNotFoundError when no profile exists', async () => {
+    const repo = createRepoStub({
+      findByUserId: vi.fn(async () => null),
+    });
+
+    const service = createCareRecipientService(repo);
+
+    await expect(service.getMyProfile(userId)).rejects.toBeInstanceOf(CareRecipientNotFoundError);
+  });
+
+  it('updateMyProfile updates the user profile', async () => {
+    const profile = {
+      id: 'profile-1',
+      userId,
+      createdByUserId: null,
+      displayName: 'My Profile',
+      timezone: 'America/New_York',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    const updatedProfile = {
+      ...profile,
+      displayName: 'New Name',
+      timezone: 'America/Los_Angeles',
+    };
+
+    const repo = createRepoStub({
+      findByUserId: vi.fn(async () => profile),
+      update: vi.fn(async () => updatedProfile),
+    });
+
+    const service = createCareRecipientService(repo);
+    const result = await service.updateMyProfile(userId, {
+      displayName: 'New Name',
+      timezone: 'America/Los_Angeles',
+    });
+
+    expect(result.displayName).toBe('New Name');
+    expect(result.timezone).toBe('America/Los_Angeles');
+    expect(repo.findByUserId).toHaveBeenCalledWith(userId);
+    expect(repo.update).toHaveBeenCalledWith(userId, 'profile-1', {
+      displayName: 'New Name',
+      timezone: 'America/Los_Angeles',
+    });
+  });
+
+  it('updateMyProfile throws CareRecipientNotFoundError when no profile exists', async () => {
+    const repo = createRepoStub({
+      findByUserId: vi.fn(async () => null),
+    });
+
+    const service = createCareRecipientService(repo);
+
+    await expect(service.updateMyProfile(userId, { displayName: 'X' })).rejects.toBeInstanceOf(
+      CareRecipientNotFoundError
+    );
   });
 });

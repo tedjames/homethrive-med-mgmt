@@ -203,7 +203,28 @@ export function createMedicationService(repo: MedicationRepository) {
     return medication;
   }
 
-  return { create, getById, listByRecipient, update, setInactive };
+  /**
+   * Reactivates an inactive medication.
+   *
+   * Restores a previously deactivated medication to active status. After reactivation:
+   * - The medication will appear in default listing queries
+   * - Doses will be generated for its schedules again
+   * - The medication can be updated
+   *
+   * @param userId - The requesting user's ID (for authorization)
+   * @param medicationId - The medication's unique identifier
+   * @returns The updated medication with isActive=true
+   * @throws {MedicationNotFoundError} If the medication doesn't exist or user lacks access
+   */
+  async function reactivate(userId: UserId, medicationId: string): Promise<Medication> {
+    const medication = await repo.setActive(userId, medicationId);
+    if (!medication) {
+      throw new MedicationNotFoundError(medicationId);
+    }
+    return medication;
+  }
+
+  return { create, getById, listByRecipient, update, setInactive, reactivate };
 }
 
 /**

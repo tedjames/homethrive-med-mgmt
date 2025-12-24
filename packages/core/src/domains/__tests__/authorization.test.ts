@@ -47,6 +47,10 @@ describe('Cross-Domain Authorization', () => {
           throw new Error('not implemented');
         }),
         update: vi.fn(async () => null),
+        findByUserId: vi.fn(async () => null),
+        findOrCreateOwnProfile: vi.fn(async () => {
+          throw new Error('not implemented');
+        }),
         ...overrides,
       };
     }
@@ -58,6 +62,7 @@ describe('Cross-Domain Authorization', () => {
           if (userId === USER_B && id === 'recipient-1') {
             return {
               id: 'recipient-1',
+              userId: null,
               createdByUserId: USER_B,
               displayName: 'Grandma',
               timezone: 'America/New_York',
@@ -88,6 +93,7 @@ describe('Cross-Domain Authorization', () => {
           if (userId === USER_B && id === 'recipient-1') {
             return {
               id: 'recipient-1',
+              userId: null,
               createdByUserId: USER_B,
               displayName: 'Updated Name',
               timezone: 'America/New_York',
@@ -118,6 +124,7 @@ describe('Cross-Domain Authorization', () => {
             return [
               {
                 id: 'recipient-A',
+                userId: null,
                 createdByUserId: USER_A,
                 displayName: 'A Grandma',
                 timezone: 'America/New_York',
@@ -130,6 +137,7 @@ describe('Cross-Domain Authorization', () => {
             return [
               {
                 id: 'recipient-B',
+                userId: null,
                 createdByUserId: USER_B,
                 displayName: 'B Grandma',
                 timezone: 'America/Chicago',
@@ -167,6 +175,7 @@ describe('Cross-Domain Authorization', () => {
         }),
         update: vi.fn(async () => null),
         setInactive: vi.fn(async () => null),
+        setActive: vi.fn(async () => null),
         createWithSchedules: vi.fn(async () => {
           throw new Error('not implemented');
         }),
@@ -347,6 +356,7 @@ describe('Cross-Domain Authorization', () => {
         }),
         update: vi.fn(async () => null),
         setInactive: vi.fn(async () => null),
+        setActive: vi.fn(async () => null),
         createWithSchedules: vi.fn(async () => {
           throw new Error('not implemented');
         }),

@@ -24,6 +24,7 @@ export type { ISODateString, ISODateTimeString, UserId } from './shared/types.js
 
 // Domains
 export * from './domains/care-recipients/index.js';
+export * from './domains/caregiver-access/index.js';
 export * from './domains/medications/index.js';
 export * from './domains/schedules/index.js';
 export * from './domains/doses/index.js';

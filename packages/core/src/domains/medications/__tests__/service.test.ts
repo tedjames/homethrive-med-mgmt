@@ -19,6 +19,7 @@ function createRepoStub(overrides: Partial<MedicationRepository> = {}): Medicati
     }),
     update: vi.fn(async () => null),
     setInactive: vi.fn(async () => null),
+    setActive: vi.fn(async () => null),
     createWithSchedules: vi.fn(async () => {
       throw new Error('not implemented');
     }),
