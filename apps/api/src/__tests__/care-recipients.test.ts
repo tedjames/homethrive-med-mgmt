@@ -87,7 +87,8 @@ describe('Care Recipients API', () => {
   });
 
   describe('GET /v1/recipients', () => {
-    it('returns empty array for user with no recipients', async () => {
+    it('returns user own profile when no other recipients exist', async () => {
+      // User's own profile is auto-created on first request via auth plugin
       const response = await app.inject({
         method: 'GET',
         url: '/v1/recipients',
@@ -96,11 +97,13 @@ describe('Care Recipients API', () => {
 
       expect(response.statusCode).toBe(200);
       const body = response.json();
-      expect(body.data).toEqual([]);
+      // Auto-created own profile should be present
+      expect(body.data).toHaveLength(1);
+      expect(body.data[0].userId).toBe(testUserId);
     });
 
-    it('returns recipients created by the user', async () => {
-      // Create a recipient
+    it('returns recipients including user own profile and created ones', async () => {
+      // Create a recipient (own profile is auto-created on first request)
       await app.inject({
         method: 'POST',
         url: '/v1/recipients',
@@ -117,8 +120,11 @@ describe('Care Recipients API', () => {
 
       expect(response.statusCode).toBe(200);
       const body = response.json();
-      expect(body.data).toHaveLength(1);
-      expect(body.data[0].displayName).toBe('Mom');
+      // Should have own profile + created recipient
+      expect(body.data).toHaveLength(2);
+      // Find the created recipient (not the auto-created one)
+      const createdRecipient = body.data.find((r: { displayName: string }) => r.displayName === 'Mom');
+      expect(createdRecipient).toBeDefined();
     });
 
     it('returns 401 without auth header', async () => {

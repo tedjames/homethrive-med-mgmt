@@ -68,7 +68,7 @@ const authPlugin = fp(async (fastify: FastifyInstance) => {
   }
 
   fastify.addHook('preHandler', async (request) => {
-    const { userRepository } = fastify.container;
+    const { userRepository, careRecipientRepository } = fastify.container;
 
     if (clerkEnabled) {
       // Production mode: Only accept Clerk-authenticated requests
@@ -87,6 +87,11 @@ const authPlugin = fp(async (fastify: FastifyInstance) => {
       try {
         const user = await userRepository.upsert({ clerkUserId });
         request.userId = user.clerkUserId; // Use clerkUserId as the userId for domain services
+
+        // Auto-create care recipient profile if it doesn't exist
+        // Use display name from user record, fallback to email or "My Profile"
+        const displayName = user.displayName || user.email?.split('@')[0] || 'My Profile';
+        await careRecipientRepository.findOrCreateOwnProfile(user.clerkUserId, displayName);
       } catch (err) {
         fastify.log.error({ err, clerkUserId }, 'Failed to resolve user from Clerk ID');
         request.userId = null;
@@ -120,6 +125,10 @@ const authPlugin = fp(async (fastify: FastifyInstance) => {
     try {
       const user = await userRepository.upsert({ clerkUserId });
       request.userId = user.clerkUserId;
+
+      // Auto-create care recipient profile if it doesn't exist
+      const displayName = user.displayName || user.email?.split('@')[0] || 'My Profile';
+      await careRecipientRepository.findOrCreateOwnProfile(user.clerkUserId, displayName);
     } catch (err) {
       fastify.log.error({ err, clerkUserId }, 'Failed to resolve user from Clerk ID');
       request.userId = null;

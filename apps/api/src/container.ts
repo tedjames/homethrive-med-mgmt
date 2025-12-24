@@ -5,10 +5,12 @@
 
 import {
   createCareRecipientService,
+  createCaregiverAccessService,
   createMedicationService,
   createScheduleService,
   createDoseService,
   type CareRecipientService,
+  type CaregiverAccessService,
   type MedicationService,
   type ScheduleService,
   type DoseService,
@@ -16,6 +18,7 @@ import {
 
 import {
   createDb,
+  DrizzleCaregiverAccessRepository,
   DrizzleCareRecipientRepository,
   DrizzleMedicationRepository,
   DrizzleScheduleRepository,
@@ -27,7 +30,9 @@ import {
 export interface Container {
   db: DbClient;
   userRepository: DrizzleUserRepository;
+  careRecipientRepository: DrizzleCareRecipientRepository;
   careRecipientService: CareRecipientService;
+  caregiverAccessService: CaregiverAccessService;
   medicationService: MedicationService;
   scheduleService: ScheduleService;
   doseService: DoseService;
@@ -40,12 +45,14 @@ export function createContainer(databaseUrl: string): Container {
   // Create repositories
   const userRepository = new DrizzleUserRepository(db);
   const careRecipientRepository = new DrizzleCareRecipientRepository(db);
+  const caregiverAccessRepository = new DrizzleCaregiverAccessRepository(db);
   const medicationRepository = new DrizzleMedicationRepository(db);
   const scheduleRepository = new DrizzleScheduleRepository(db);
   const doseTakenRepository = new DrizzleDoseTakenRepository(db);
 
   // Create services
   const careRecipientService = createCareRecipientService(careRecipientRepository);
+  const caregiverAccessService = createCaregiverAccessService(caregiverAccessRepository);
   const medicationService = createMedicationService(medicationRepository);
   const scheduleService = createScheduleService(scheduleRepository);
   const doseService = createDoseService(scheduleRepository, doseTakenRepository, medicationRepository);
@@ -53,7 +60,9 @@ export function createContainer(databaseUrl: string): Container {
   return {
     db,
     userRepository,
+    careRecipientRepository,
     careRecipientService,
+    caregiverAccessService,
     medicationService,
     scheduleService,
     doseService,

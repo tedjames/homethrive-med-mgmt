@@ -26,9 +26,10 @@ export const apiErrorSchema = z.object({
 // Care Recipient response schema
 export const careRecipientResponseSchema = z.object({
   id: z.string().uuid(),
+  userId: z.string().nullable(),
+  createdByUserId: z.string().nullable(),
   displayName: z.string(),
   timezone: z.string(),
-  createdByUserId: z.string(),
   createdAt: z.string(),
   updatedAt: z.string(),
 });
