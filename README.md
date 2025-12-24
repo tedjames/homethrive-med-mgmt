@@ -2,6 +2,31 @@
 
 A full-stack application for caregivers to manage medications for care recipients. Supports adding medications with schedules (daily/weekly recurrence), viewing upcoming doses and marking doses as taken. Web app and API is meant to be deployed via AWS CDK.
 
+## How the UX Works
+
+Every user in the system can be both a care recipient and caregiver for others.
+
+### Getting Started as a User
+
+1. **Sign Up**: Create an account using Clerk authentication (email auth only at the moment)
+2. **Complete Onboarding**: Set up your profile with your display name and timezone
+3. **Select a Role**: Designate yourself as a care recipient and/or caregiver
+### Managing Care for Others
+
+To manage medications for someone else they must:
+
+1. **Have their own account** - The person you want to care for needs to sign up first
+2. **Grant you access** - They invite you as a caregiver from their Settings page (or you can request access)
+
+Once connected, you can switch between managing your own medications and theirs using the dropdown in the sidebar.
+
+### Settings Page
+
+The Settings page has two tabs:
+
+- **My Caregivers**: See who has access to your profile, approve/deny requests, invite new caregivers, revoke access
+- **People I Care For**: See who you're caring for, accept/decline invitations, request access to new people
+
 ## Project Structure
 
 ```
