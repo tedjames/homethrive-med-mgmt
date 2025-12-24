@@ -17,9 +17,11 @@ warn() { echo -e "${YELLOW}!${NC} $1"; }
 
 echo "Validating HomeThrive deployment..."
 
+STACK_NAME="${STACK_NAME:-homethrive-test-ted}"
+
 # Get API URL from stack outputs
 API_URL=$(aws cloudformation describe-stacks \
-  --stack-name "HomeThrive" \
+  --stack-name "$STACK_NAME" \
   --query "Stacks[0].Outputs[?ExportName=='HomeThrive-ApiUrl'].OutputValue" \
   --output text 2>/dev/null)
 

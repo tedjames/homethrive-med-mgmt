@@ -43,23 +43,25 @@ success "AWS credentials valid"
 # Get CloudFormation outputs
 info "Getting deployment configuration..."
 
+STACK_NAME="${STACK_NAME:-homethrive-test-ted}"
+
 BUCKET_NAME=$(aws cloudformation describe-stacks \
-  --stack-name HomeThrive \
+  --stack-name "$STACK_NAME" \
   --query 'Stacks[0].Outputs[?ExportName==`HomeThrive-FrontendBucket`].OutputValue' \
   --output text 2>/dev/null || echo "")
 
 DISTRIBUTION_ID=$(aws cloudformation describe-stacks \
-  --stack-name HomeThrive \
+  --stack-name "$STACK_NAME" \
   --query 'Stacks[0].Outputs[?ExportName==`HomeThrive-DistributionId`].OutputValue' \
   --output text 2>/dev/null || echo "")
 
 API_URL=$(aws cloudformation describe-stacks \
-  --stack-name HomeThrive \
+  --stack-name "$STACK_NAME" \
   --query 'Stacks[0].Outputs[?ExportName==`HomeThrive-ApiUrl`].OutputValue' \
   --output text 2>/dev/null || echo "")
 
 FRONTEND_URL=$(aws cloudformation describe-stacks \
-  --stack-name HomeThrive \
+  --stack-name "$STACK_NAME" \
   --query 'Stacks[0].Outputs[?ExportName==`HomeThrive-FrontendUrl`].OutputValue' \
   --output text 2>/dev/null || echo "")
 

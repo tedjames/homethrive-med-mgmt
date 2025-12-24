@@ -17,6 +17,8 @@ export interface ApiProps {
   databaseProxy: rds.DatabaseProxy;
   databaseSecret: secretsmanager.ISecret;
   clerkSecret: secretsmanager.ISecret;
+  /** Clerk publishable key (public, safe to include in env vars) */
+  clerkPublishableKey?: string;
   /** WAF WebACL ARN to associate with the API */
   webAclArn?: string;
 }
@@ -43,6 +45,7 @@ export class ApiConstruct extends Construct {
         DATABASE_PROXY_ENDPOINT: props.databaseProxy.endpoint,
         DATABASE_SECRET_ARN: props.databaseSecret.secretArn,
         CLERK_SECRET_ARN: props.clerkSecret.secretArn,
+        ...(props.clerkPublishableKey && { CLERK_PUBLISHABLE_KEY: props.clerkPublishableKey }),
       },
       bundling: {
         minify: true,

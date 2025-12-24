@@ -86,29 +86,70 @@ if [ -n "$CLERK_SECRET_ARN" ] && [ "$CLERK_SECRET_ARN" != "None" ]; then
 fi
 
 CLERK_KEY=""
+CLERK_PUB_KEY=""
 if [ "$CLERK_CONFIGURED" = false ]; then
   warn "Clerk secret not configured in AWS Secrets Manager"
   echo ""
-  echo "  Enter your Clerk Secret Key for production/staging."
-  echo "  (Use sk_live_... for production, sk_test_... for staging)"
+  echo "  Enter your Clerk keys for production/staging."
+  echo "  (Use sk_live_/pk_live_... for production, sk_test_/pk_test_... for staging)"
   echo ""
   read -p "CLERK_SECRET_KEY: " CLERK_KEY
+  read -p "CLERK_PUBLISHABLE_KEY: " CLERK_PUB_KEY
   echo ""
 
   if [ -z "$CLERK_KEY" ]; then
-    error "Clerk key is required for deployment"
+    error "Clerk secret key is required for deployment"
+    exit 1
+  fi
+
+  if [ -z "$CLERK_PUB_KEY" ]; then
+    error "Clerk publishable key is required for deployment"
     exit 1
   fi
 
   if [[ ! "$CLERK_KEY" =~ ^sk_ ]]; then
-    warn "Key doesn't start with 'sk_' - are you sure this is correct?"
+    warn "Secret key doesn't start with 'sk_' - are you sure this is correct?"
     read -p "Continue anyway? (y/N): " confirm
     if [ "$confirm" != "y" ] && [ "$confirm" != "Y" ]; then
       echo "Deployment cancelled."
       exit 1
     fi
   fi
+
+  if [[ ! "$CLERK_PUB_KEY" =~ ^pk_ ]]; then
+    warn "Publishable key doesn't start with 'pk_' - are you sure this is correct?"
+    read -p "Continue anyway? (y/N): " confirm
+    if [ "$confirm" != "y" ] && [ "$confirm" != "Y" ]; then
+      echo "Deployment cancelled."
+      exit 1
+    fi
+  fi
+else
+  # If Clerk is already configured, check if we have publishable key stored
+  CLERK_PUB_KEY=$(aws secretsmanager get-secret-value \
+    --secret-id homethrive/clerk \
+    --query SecretString \
+    --output text 2>/dev/null | grep -o '"publishableKey":"[^"]*"' | cut -d'"' -f4 || echo "")
+
+  if [ -z "$CLERK_PUB_KEY" ]; then
+    warn "Clerk publishable key not found in secret"
+    echo ""
+    echo "  The publishable key is needed for the API Lambda."
+    echo "  (Use pk_live_... for production, pk_test_... for staging)"
+    echo ""
+    read -p "CLERK_PUBLISHABLE_KEY: " CLERK_PUB_KEY
+
+    if [ -z "$CLERK_PUB_KEY" ]; then
+      error "Clerk publishable key is required for deployment"
+      exit 1
+    fi
+  else
+    success "Clerk publishable key found in secret"
+  fi
 fi
+
+# Export publishable key for CDK
+export CLERK_PUBLISHABLE_KEY="$CLERK_PUB_KEY"
 
 # Check if alert email is configured
 info "Checking CloudWatch alert email configuration..."
@@ -201,8 +242,22 @@ if [ -n "$CLERK_KEY" ]; then
   info "Configuring Clerk secret in AWS Secrets Manager..."
   aws secretsmanager put-secret-value \
     --secret-id homethrive/clerk \
-    --secret-string "{\"secretKey\":\"$CLERK_KEY\"}"
+    --secret-string "{\"secretKey\":\"$CLERK_KEY\",\"publishableKey\":\"$CLERK_PUB_KEY\"}"
   success "Clerk secret configured"
+elif [ -n "$CLERK_PUB_KEY" ]; then
+  # Update existing secret to add publishable key
+  echo ""
+  info "Updating Clerk secret with publishable key..."
+  EXISTING_SECRET=$(aws secretsmanager get-secret-value \
+    --secret-id homethrive/clerk \
+    --query SecretString \
+    --output text 2>/dev/null || echo "{}")
+  # Extract existing secret key
+  EXISTING_SK=$(echo "$EXISTING_SECRET" | grep -o '"secretKey":"[^"]*"' | cut -d'"' -f4 || echo "")
+  aws secretsmanager put-secret-value \
+    --secret-id homethrive/clerk \
+    --secret-string "{\"secretKey\":\"$EXISTING_SK\",\"publishableKey\":\"$CLERK_PUB_KEY\"}"
+  success "Clerk secret updated with publishable key"
 fi
 
 # Store alert email if changed

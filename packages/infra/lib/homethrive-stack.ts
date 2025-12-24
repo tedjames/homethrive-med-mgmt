@@ -50,6 +50,7 @@ export class HomeThiveStack extends cdk.Stack {
       databaseProxy: database.proxy,
       databaseSecret: database.secret,
       clerkSecret: database.clerkSecret,
+      clerkPublishableKey: process.env.CLERK_PUBLISHABLE_KEY,
       webAclArn: apiWaf.webAcl.attrArn,
     });
 
