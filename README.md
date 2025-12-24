@@ -32,7 +32,6 @@ The Settings page has three tabs:
 
 - **Safe Modifications**: Editing, ending, or deactivating medications and schedules preserves all historical dose data to ensure a reliable record of care.
 - **Deactivation**: Deactivating a medication hides it from the schedule but keeps all data intact, allowing it to be reactivated at any time.
-- **Safety Guard**: Medications must be deactivated before they can be permanently deleted to prevent accidental data loss.
 
 ### Timezone Handling
 
