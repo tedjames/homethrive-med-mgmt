@@ -70,7 +70,6 @@ export class FrontendConstruct extends Construct {
       priceClass: cloudfront.PriceClass.PRICE_CLASS_100,
       // Enable HTTP/2 and HTTP/3
       httpVersion: cloudfront.HttpVersion.HTTP2_AND_3,
-      // WAF protection (see ADR-006)
       webAclId: props?.webAclArn,
     });
 

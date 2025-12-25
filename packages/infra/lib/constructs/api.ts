@@ -58,7 +58,6 @@ export class ApiConstruct extends Construct {
     props.databaseSecret.grantRead(this.function);
     props.clerkSecret.grantRead(this.function);
 
-    // REST API Gateway (switched from HTTP API for WAF support - see ADR-006)
     this.api = new apigateway.RestApi(this, 'RestApi', {
       restApiName: 'HomeThrive-API',
       description: 'HomeThrive Medication Manager API',

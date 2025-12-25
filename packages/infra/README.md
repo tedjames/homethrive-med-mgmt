@@ -8,7 +8,7 @@ Infrastructure as Code package using AWS CDK to provision and manage all AWS res
 - **Serverless Architecture**: REST API Gateway + Lambda for cost-effective scaling
 - **Managed Database**: RDS Postgres with RDS Proxy for Lambda connection pooling
 - **Frontend Hosting**: S3 + CloudFront for static SPA hosting
-- **WAF Protection**: AWS WAF on both CloudFront and API Gateway (see ADR-006)
+- **WAF Protection**: AWS WAF on both CloudFront and API Gateway
 - **Secrets Management**: AWS Secrets Manager for database credentials and Clerk keys
 - **Observability**: CloudWatch Logs, Metrics, and Alarms
 
@@ -197,7 +197,7 @@ packages/infra/
 **Purpose**: REST API Gateway routing requests to Lambda with WAF protection.
 
 **Configuration:**
-- **Type**: REST API (required for WAF support - see ADR-006)
+- **Type**: REST API (required for WAF support)
 - **Throttling**: 50 requests/second, 100 burst
 - **CORS**: Configured for all origins and methods
 - **WAF**: Associated with regional WebACL

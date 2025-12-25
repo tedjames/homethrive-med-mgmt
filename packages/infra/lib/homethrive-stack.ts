@@ -44,7 +44,6 @@ export class HomeThiveStack extends cdk.Stack {
 
     // API (Lambda in VPC + REST API Gateway with WAF)
     // Per ADR-003: Lambda in private subnet with NAT for Clerk auth
-    // Per ADR-006: Switched to REST API for WAF support
     const api = new ApiConstruct(this, 'API', {
       vpc: database.vpc,
       databaseProxy: database.proxy,
@@ -68,7 +67,6 @@ export class HomeThiveStack extends cdk.Stack {
     });
 
     // Frontend (S3 + CloudFront with WAF for SPA hosting)
-    // Per ADR-006: WAF protection on CloudFront
     new FrontendConstruct(this, 'Frontend', {
       webAclArn: cloudfrontWaf.webAcl.attrArn,
     });
